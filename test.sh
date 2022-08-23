@@ -26,5 +26,10 @@ assert 15 '5*(-6+9)'
 assert 4 '(3+5)/2'
 assert 10 '-10+20'
 assert 25 '-20-20+65'
-
+assert 0 '0==1'
+assert 1 '42==42'
+assert 1 '5 == 1 + 4'
+assert 1 '5 * 5 == 25'
+assert 1 '(30 - 1) * (30 + 1) == 899'
+assert 0 '(30 - 1) * (30 + 1) == 900'
 echo OK

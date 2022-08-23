@@ -1,4 +1,5 @@
-CFLAGS=-std=c11 -g -static
+CC = gcc
+CFLAGS=-std=c11 -g3 -static
 
 ycc: ycc.c
 
