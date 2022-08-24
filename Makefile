@@ -1,7 +1,12 @@
 CC = gcc
 CFLAGS=-std=c11 -g3 -static
+SRCS = $(wildcard *.c)
+OBJS = $(SRCS:.c=.o)
 
-ycc: ycc.c
+ycc: $(OBJS)
+	$(CC) -o ycc $(OBJS) $(CFLAGS)
+
+$(OBJS): ycc.h
 
 test: ycc
 	./test.sh

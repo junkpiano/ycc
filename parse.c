@@ -9,36 +9,16 @@
  * 
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
 
-//
-// Tokenizer
-//
-
-typedef enum {
-    TK_RESERVED,
-    TK_NUM,
-    TK_EOF,
-} TokenKind;
-
-typedef struct Token Token;
-
-struct Token {
-    TokenKind kind;
-    Token *next;
-    int val;
-    char *str;
-    int len;
-};
+#include "ycc.h"
 
 // Current Token
 Token *token;
-
 char *user_input;
 
 // Reports an error and exit.
@@ -157,30 +137,10 @@ Token *tokenize(char *p) {
     return head.next;
 }
 
-//
-// Parser
-//
-
-typedef enum {
-    ND_ADD,
-    ND_SUB,
-    ND_MUL,
-    ND_DIV,
-    ND_EQ,  // ==
-    ND_NE,  // !=
-    ND_LT,  // <
-    ND_LE,  // <=
-    ND_NUM,
-} NodeKind;
-
-typedef struct Node Node;
-
-struct Node {
-    NodeKind kind; // Node kind
-    Node *lhs;
-    Node *rhs;
-    int val;
-};
+void init_token(char *p) {
+    token = tokenize(p);
+    user_input = p;
+}
 
 Node *new_node(NodeKind kind) {
     Node *node = calloc(1, sizeof(Node));
@@ -200,22 +160,6 @@ Node *new_num(int val) {
     node->val = val;
     return node;
 }
-
-// expr = equality
-// equality = relational ("==" relational | "!=" relational)*
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
-// add = mul ("+" mul | "-" mul)*
-// mul = unary ("*" unary | "/" unary)*
-// unary = ("+" |"-")? primary
-// primary = num | "(" expr ")"
-
-Node *expr();
-Node *equality();
-Node *relational();
-Node *add();
-Node *mul();
-Node *unary();
-Node *primary();
 
 Node *expr() {
     return equality();
@@ -301,81 +245,4 @@ Node *primary() {
     }
 
     return new_num(expect_number());
-}
-
-//
-// Code Generator
-//
-
-void gen(Node *node) {
-    if(node->kind == ND_NUM) {
-        printf("    push %d\n", node->val);
-        return;
-    }
-
-    gen(node->lhs);
-    gen(node->rhs);
-
-    printf("    pop rdi\n");
-    printf("    pop rax\n");
-
-    switch (node->kind) {
-        case ND_ADD:
-        printf("    add rax, rdi\n");
-        break;
-        case ND_SUB:
-        printf("    sub rax, rdi\n");
-        break;
-        case ND_MUL:
-        printf("    imul rax, rdi\n");
-        break;
-        case ND_DIV:
-        printf("    cqo\n");
-        printf("    idiv rdi\n");
-        break;
-        case ND_EQ:
-        printf("    cmp rax, rdi\n");
-        printf("    sete al\n");
-        printf("    movzb rax, al\n");
-        break;
-        case ND_NE:
-        printf("    cmp rax, rdi\n");
-        printf("    setne al\n");
-        printf("    movzb rax, al\n");
-        break;
-        case ND_LT:
-        printf("    cmp rax, rdi\n");
-        printf("    setl al\n");
-        printf("    movzb rax, al\n");
-        break;
-        case ND_LE:
-        printf("    cmp rax, rdi\n");
-        printf("    setle al\n");
-        printf("    movzb rax, al\n");
-        break;
-    }
-
-    printf("    push rax\n");
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        error("%s: invalid number of arguments", argv[0]);
-        return 1;
-    }
-
-    user_input = argv[1];
-    token = tokenize(argv[1]);
-    Node *node = expr();
-
-    printf(".intel_syntax noprefix\n");
-    printf(".globl main\n");
-    printf("main:\n");
-
-    gen(node);
-
-    printf("    pop rax\n");
-    printf("    ret\n");
-
-    return 0;
 }
