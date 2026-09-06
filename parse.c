@@ -174,9 +174,9 @@ Node *equality() {
     
     for(;;) {
         if (consume("==")) {
-            return new_binary(ND_EQ, node, relational()); 
+            node = new_binary(ND_EQ, node, relational());
         } else if (consume("!=")) {
-            return new_binary(ND_NE, node, relational());
+            node = new_binary(ND_NE, node, relational());
         } else {
             return node;
         }
@@ -188,13 +188,13 @@ Node *relational() {
 
     for(;;) {
         if (consume("<")) {
-            return new_binary(ND_LT, node, add()); 
+            node = new_binary(ND_LT, node, add());
         } else if (consume("<=")) {
-            return new_binary(ND_LE, node, add());
+            node = new_binary(ND_LE, node, add());
         } else if (consume(">")) {
-            return new_binary(ND_LT, add(), node);
+            node = new_binary(ND_LT, add(), node);
         } else if (consume(">=")) {
-            return new_binary(ND_LE, add(), node);
+            node = new_binary(ND_LE, add(), node);
         } else {
             return node;
         }

@@ -10,6 +10,9 @@ int main(int argc, char *argv[]) {
 
     init_token(argv[1]);
     Node *node = expr();
+    if (!at_eof()) {
+        error_at(token->str, "extra token");
+    }
 
     printf(".intel_syntax noprefix\n");
     printf(".globl main\n");

@@ -1,6 +1,7 @@
 #ifndef __YCC_H__
 #define __YCC_H__
 
+#include <stdbool.h>
 #include <stdio.h>
 
 //
@@ -23,7 +24,11 @@ struct Token {
     int len;
 };
 
+// Token currently being parsed.
+extern Token *token;
+
 void init_token(char *p);
+bool at_eof();
 void error(char *fmt, ...);
 void error_at(char *loc, char *fmt, ...);
 
