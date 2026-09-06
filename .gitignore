@@ -35,3 +35,11 @@
 *.app
 
 core
+
+# Build output
+ycc
+temp
+temp.s
+
+# Private notes
+docs/

@@ -27,6 +27,7 @@ void error(char *fmt, ...) {
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
   fprintf(stderr, "\n");
+  va_end(ap);
   exit(1);
 }
 
@@ -36,10 +37,12 @@ void error_at(char *loc, char *fmt, ...) {
 
     int pos = loc - user_input;
     fprintf(stderr, "%s\n", user_input);
-    fprintf(stderr, "%*s", pos, " ");
+    // Pad with `pos` spaces, then point at the offending token.
+    fprintf(stderr, "%*s", pos, "");
     fprintf(stderr, "^ ");
-    fprintf(stderr, fmt, ap);
+    vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
+    va_end(ap);
     exit(1);
 }
 
@@ -59,7 +62,7 @@ void expect(char *op) {
     if (token->kind != TK_RESERVED ||
     strlen(op) != token->len ||
     memcmp(token->str, op, token->len)) {
-        error_at(token->str, "This is not '%c'", op);
+        error_at(token->str, "This is not '%s'", op);
     }
 
     token = token->next;
@@ -138,8 +141,9 @@ Token *tokenize(char *p) {
 }
 
 void init_token(char *p) {
-    token = tokenize(p);
+    // Must be set before tokenize(), which may call error_at().
     user_input = p;
+    token = tokenize(p);
 }
 
 Node *new_node(NodeKind kind) {
