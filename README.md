@@ -10,16 +10,15 @@ command line argument and writes GNU assembler source (Intel syntax) to stdout.
 
     make
 
-Builds with `-Wall -Wextra -Wswitch-enum -Wstrict-prototypes
--Wmissing-prototypes`.
-`-Wswitch-enum` is deliberate: the
-code generator's switch has a `default:` that rejects unknown node kinds at
-runtime, and that suppresses plain `-Wswitch`, so a node kind added without a
-codegen case would otherwise go unreported at compile time. `-Wstrict-prototypes`
-keeps `f()` from creeping back in where `f(void)` is meant -- in C the former
-declares unspecified parameters rather than none. `-Wmissing-prototypes` catches
-a function that is externally visible but has no declaration, which usually means
-it should have been `static`.
+Builds with `-Wall -Wextra -Wswitch-enum -Wstrict-prototypes -Wmissing-prototypes`.
+
+`-Wswitch-enum` is deliberate: the code generator's switch has a `default:` that
+rejects unknown node kinds at runtime, and that suppresses plain `-Wswitch`, so a
+node kind added without a codegen case would otherwise go unreported at compile
+time. `-Wstrict-prototypes` keeps `f()` from creeping back in where `f(void)` is
+meant -- in C the former declares unspecified parameters rather than none.
+`-Wmissing-prototypes` catches a function that is externally visible but has no
+declaration, which usually means it should have been `static`.
 
 ## Usage
 
@@ -41,6 +40,7 @@ At least one statement is required; empty input is rejected.
     program    = stmt+
     stmt       = expr ";"
                | "return" expr ";"
+               | "if" "(" expr ")" stmt ("else" stmt)?
     expr       = assign
     assign     = equality ("=" assign)?
     equality   = relational ("==" relational | "!=" relational)*
@@ -57,8 +57,23 @@ chain to the left, so `1<2<3` is `(1<2)<3`.
 compiled but never run. Every `return` jumps to a single shared epilogue rather
 than carrying its own copy.
 
-`return` is a keyword only when it is a whole identifier, so `returnx` is an
-ordinary variable name.
+## Control flow
+
+    if (a == 1) b = 2; else b = 3;
+
+An `else` binds to the nearest unmatched `if`.
+
+An `if` is a statement, and like every statement it has a value: that of
+whichever branch was taken. With no `else` and a false condition, that value is
+0.
+
+    $ ./ycc 'a=1; if (a) 7; else 8;' > temp.s   # 7
+    $ ./ycc 'if (0) 7;' > temp.s                # 0
+
+## Keywords
+
+`return`, `if` and `else`. Each is a keyword only when it is a whole identifier,
+so `returnx`, `iffy` and `elsewhere` are ordinary variable names.
 
 ## Variables
 

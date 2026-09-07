@@ -80,6 +80,28 @@ static Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
     return tok;
 }
 
+static const struct {
+    char *name;
+    TokenKind kind;
+} keywords[] = {
+    {"return", TK_RETURN},
+    {"if", TK_IF},
+    {"else", TK_ELSE},
+};
+
+// The token kind for an identifier of the given length: a keyword kind if it
+// matches one exactly, otherwise TK_IDENT.
+static TokenKind keyword_kind(char *str, int len) {
+    for (size_t i = 0; i < sizeof(keywords) / sizeof(*keywords); i++) {
+        if ((int)strlen(keywords[i].name) == len &&
+            memcmp(str, keywords[i].name, len) == 0) {
+            return keywords[i].kind;
+        }
+    }
+
+    return TK_IDENT;
+}
+
 static bool is_ident_head(char c) {
     return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
 }
@@ -119,14 +141,9 @@ static Token *tokenize(char *p) {
                 p++;
             } while (is_ident_tail(*p));
 
-            int len = p - q;
             // A keyword is only a keyword when it is the whole identifier,
-            // so "returnx" stays one identifier.
-            if (len == 6 && memcmp(q, "return", 6) == 0) {
-                cur = new_token(TK_RETURN, cur, q, len);
-            } else {
-                cur = new_token(TK_IDENT, cur, q, len);
-            }
+            // so "returnx" and "iffy" stay single identifiers.
+            cur = new_token(keyword_kind(q, p - q), cur, q, p - q);
             continue;
         }
 

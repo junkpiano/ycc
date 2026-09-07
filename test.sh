@@ -161,6 +161,33 @@ assert 7 'return_=7; return_;'
 assert 6 'returns=2; return returns*3;'
 assert 8 'returnvalue=8; return returnvalue;'
 
+# if / else.
+assert 2 'if (1) return 2; return 3;'
+assert 3 'if (0) return 2; return 3;'
+assert 2 'if (1) return 2; else return 3;'
+assert 3 'if (0) return 2; else return 3;'
+assert 5 'a=0; if (1) a=5; return a;'
+assert 0 'a=0; if (0) a=5; return a;'
+assert 1 'a=0; if (1-1) a=5; else a=1; return a;'
+assert 4 'if (1) if (1) if (1) return 4; return 5;'
+assert 2 'a=1; if (a==1) a=2; return a;'
+assert 7 'a=1; if (a==2) a=9; return 7;'
+# A dangling else binds to the nearest if.
+assert 2 'if (1) if (0) return 1; else return 2; return 3;'
+assert 3 'if (0) if (0) return 1; else return 2; return 3;'
+# A nested if's value propagates outward, but a later return still wins.
+assert 6 'if (1) if (0) return 4; else 6;'
+assert 9 'if (1) if (0) return 4; else 6; return 9;'
+assert 9 'a=1; if (a==1) if (a==2) return 8; else return 9; return 7;'
+# An if is a statement and still leaves one value; with no else and a false
+# condition that value is 0.
+assert 7 'if (1) 7;'
+assert 0 'if (0) 7;'
+assert 2 'a=1; if (a) a=2; else a=3; if (0) 9; a;'
+# Keywords are only keywords as whole identifiers.
+assert 3 'iffy=3; iffy;'
+assert 4 'elsewhere=4; elsewhere;'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail '1+;'
 assert_fail '(1;'
@@ -180,5 +207,11 @@ assert_fail '=1;'
 assert_fail 'return;'
 assert_fail 'return'
 assert_fail 'return return 1;'
+assert_fail 'if 1) return 2;'
+assert_fail 'if (1 return 2;'
+assert_fail 'if (1);'
+assert_fail 'if () return 1;'
+assert_fail 'else return 1;'
+assert_fail 'if (1) return 2; else;'
 
 echo "OK ($pass assertions)"

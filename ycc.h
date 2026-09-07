@@ -12,6 +12,8 @@ typedef enum {
     TK_RESERVED,
     TK_IDENT,
     TK_RETURN,
+    TK_IF,
+    TK_ELSE,
     TK_NUM,
     TK_EOF,
 } TokenKind;
@@ -77,6 +79,7 @@ typedef enum {
     ND_ASSIGN,
     ND_LVAR,
     ND_RETURN,
+    ND_IF,
     ND_NUM,
 } NodeKind;
 
@@ -86,6 +89,12 @@ struct Node {
     NodeKind kind; // Node kind
     Node *lhs;
     Node *rhs;
+
+    // ND_IF
+    Node *cond;
+    Node *then;
+    Node *els;
+
     int val;    // ND_NUM only
     int offset; // ND_LVAR only: distance below rbp
 };
@@ -93,6 +102,7 @@ struct Node {
 // program = stmt+
 // stmt = expr ";"
 //      | "return" expr ";"
+//      | "if" "(" expr ")" stmt ("else" stmt)?
 // expr = assign
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*

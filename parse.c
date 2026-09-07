@@ -87,6 +87,19 @@ void program(void) {
 Node *stmt(void) {
     Node *node;
 
+    if (consume_kind(TK_IF)) {
+        node = new_node(ND_IF);
+        expect("(");
+        node->cond = expr();
+        expect(")");
+        node->then = stmt();
+        // An else binds to the nearest if, which falls out of recursing here.
+        if (consume_kind(TK_ELSE)) {
+            node->els = stmt();
+        }
+        return node;
+    }
+
     if (consume_kind(TK_RETURN)) {
         node = new_node(ND_RETURN);
         node->lhs = expr();
