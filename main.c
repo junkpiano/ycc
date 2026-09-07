@@ -17,6 +17,11 @@ int main(int argc, char *argv[]) {
     printf(".globl main\n");
     printf("main:\n");
 
+    // Prologue: reserve one 8-byte slot for each of the 26 locals.
+    printf("    push rbp\n");
+    printf("    mov rbp, rsp\n");
+    printf("    sub rsp, %d\n", 26 * 8);
+
     // Each statement leaves its value on the stack. Pop it so the stack stays
     // balanced; the last one popped is the program's value.
     for (int i = 0; code[i] != NULL; i++) {
@@ -24,6 +29,9 @@ int main(int argc, char *argv[]) {
         printf("    pop rax\n");
     }
 
+    // Epilogue.
+    printf("    mov rsp, rbp\n");
+    printf("    pop rbp\n");
     printf("    ret\n");
 
     return 0;

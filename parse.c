@@ -62,7 +62,18 @@ Node *stmt(void) {
 }
 
 Node *expr(void) {
-    return equality();
+    return assign();
+}
+
+Node *assign(void) {
+    Node *node = equality();
+
+    // Right associative, so recurse into assign() rather than looping.
+    if (consume("=")) {
+        node = new_binary(ND_ASSIGN, node, assign());
+    }
+
+    return node;
 }
 
 Node *equality(void) {
@@ -141,6 +152,14 @@ Node *primary(void) {
     if (consume("(")) {
         Node *node = expr();
         expect(")");
+        return node;
+    }
+
+    Token *tok = consume_ident();
+    if (tok != NULL) {
+        Node *node = new_node(ND_LVAR);
+        // 'a' lives closest to rbp, 'z' furthest.
+        node->offset = (tok->str[0] - 'a' + 1) * 8;
         return node;
     }
 

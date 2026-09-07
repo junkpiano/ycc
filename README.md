@@ -39,16 +39,32 @@ At least one statement is required; empty input is rejected.
 
     program    = stmt+
     stmt       = expr ";"
-    expr       = equality
+    expr       = assign
+    assign     = equality ("=" assign)?
     equality   = relational ("==" relational | "!=" relational)*
     relational = add ("<" add | "<=" add | ">" add | ">=" add)*
     add        = mul ("+" mul | "-" mul)*
     mul        = unary ("*" unary | "/" unary)*
     unary      = ("+" | "-") unary | primary
-    primary    = num | "(" expr ")"
+    primary    = num | ident | "(" expr ")"
 
-At most 100 statements. Integers are the only type. Comparisons yield 1 or 0 and chain to the left, so
-`1<2<3` is `(1<2)<3`.
+At most 100 statements. Integers are the only type. Comparisons yield 1 or 0 and
+chain to the left, so `1<2<3` is `(1<2)<3`.
+
+## Variables
+
+Locals are the single letters `a` to `z`. Each gets its own 8-byte slot in the
+function frame, so all 26 exist from the start and none needs declaring. They
+are not initialised -- reading one before assigning to it yields whatever is in
+that slot.
+
+Assignment is an expression, and is right associative, so `a = b = 3` assigns 3
+to both and evaluates to 3.
+
+    $ ./ycc 'a=3; b=5*6-8; a+b/2;' > temp.s
+    $ cc -o temp temp.s
+    $ ./temp; echo $?
+    14
 
 ## Source layout
 

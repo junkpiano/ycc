@@ -45,6 +45,17 @@ int expect_number(void) {
     return val;
 }
 
+// Consume and return the current token if it is an identifier, else NULL.
+Token *consume_ident(void) {
+    if (token->kind != TK_IDENT) {
+        return NULL;
+    }
+
+    Token *tok = token;
+    token = token->next;
+    return tok;
+}
+
 bool at_eof(void) {
     return token->kind == TK_EOF;
 }
@@ -83,8 +94,14 @@ static Token *tokenize(char *p) {
             continue;
         }
 
+        // A single-letter local variable.
+        if ('a' <= *p && *p <= 'z') {
+            cur = new_token(TK_IDENT, cur, p++, 1);
+            continue;
+        }
+
         // If char(*p) matches any of "+-*/()" or not
-        if (strchr("+-*/()<>;", *p)) {
+        if (strchr("+-*/()<>;=", *p)) {
             cur = new_token(TK_RESERVED, cur, p++, 1);
             continue;
         }

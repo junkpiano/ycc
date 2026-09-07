@@ -10,6 +10,7 @@
 
 typedef enum {
     TK_RESERVED,
+    TK_IDENT,
     TK_NUM,
     TK_EOF,
 } TokenKind;
@@ -32,6 +33,7 @@ void init_token(char *p);
 bool consume(char *op);
 void expect(char *op);
 int expect_number(void);
+Token *consume_ident(void);
 bool at_eof(void);
 
 //
@@ -54,6 +56,8 @@ typedef enum {
     ND_NE,  // !=
     ND_LT,  // <
     ND_LE,  // <=
+    ND_ASSIGN,
+    ND_LVAR,
     ND_NUM,
 } NodeKind;
 
@@ -63,18 +67,20 @@ struct Node {
     NodeKind kind; // Node kind
     Node *lhs;
     Node *rhs;
-    int val;
+    int val;    // ND_NUM only
+    int offset; // ND_LVAR only: distance below rbp
 };
 
 // program = stmt+
 // stmt = expr ";"
-// expr = equality
+// expr = assign
+// assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-") unary | primary
-// primary = num | "(" expr ")"
+// primary = num | ident | "(" expr ")"
 
 // Parsed statements, terminated by a NULL entry.
 #define MAX_STATEMENTS 100
@@ -83,6 +89,7 @@ extern Node *code[MAX_STATEMENTS + 1];
 void program(void);
 Node *stmt(void);
 Node *expr(void);
+Node *assign(void);
 Node *equality(void);
 Node *relational(void);
 Node *add(void);

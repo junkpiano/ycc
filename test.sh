@@ -117,6 +117,21 @@ assert 6 '1+1; 2*3;'
 assert 1 '2*3; 1<2;'
 assert 5 ' 1 ; 5 ; '
 
+# Local variables. Single letters a-z, each with its own stack slot.
+assert 1 'a=1; a;'
+assert 3 'a=1; b=2; a+b;'
+assert 6 'a=b=3; a+b;'
+assert 5 'a=1; a=a+4; a;'
+assert 25 'z=5; z*z;'
+assert 14 'a=3; b=5*6-8; a+b/2;'
+assert 1 'a=1; z=2; a;'
+assert 2 'a=1; z=2; z;'
+assert 4 'a=1; a=a+1; a=a*2; a;'
+assert 1 'a = 1 ; a ;'
+# Assignment is an expression and is right associative.
+assert 7 'a=b=7; b;'
+assert 3 'a=(b=3); a;'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail '1+;'
 assert_fail '(1;'
@@ -129,5 +144,9 @@ assert_fail ''
 assert_fail '1'
 assert_fail '1; 2'
 assert_fail ';'
+assert_fail '1=2;'
+assert_fail 'a+b=3;'
+assert_fail 'a=;'
+assert_fail '=1;'
 
 echo "OK ($pass assertions)"
