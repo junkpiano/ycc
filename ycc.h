@@ -85,6 +85,7 @@ typedef enum {
     ND_WHILE,
     ND_FOR,
     ND_NOP,
+    ND_BLOCK,
     ND_NUM,
 } NodeKind;
 
@@ -102,12 +103,17 @@ struct Node {
     Node *init;
     Node *inc;
 
+    // ND_BLOCK: the statements, chained through next.
+    Node *body;
+    Node *next;
+
     int val;    // ND_NUM only
     int offset; // ND_LVAR only: distance below rbp
 };
 
 // program = stmt+
-// stmt = ";"
+// stmt = "{" stmt* "}"
+//      | ";"
 //      | expr ";"
 //      | "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
@@ -122,9 +128,8 @@ struct Node {
 // unary = ("+" | "-") unary | primary
 // primary = num | ident | "(" expr ")"
 
-// Parsed statements, terminated by a NULL entry.
-#define MAX_STATEMENTS 100
-extern Node *code[MAX_STATEMENTS + 1];
+// The whole program, as one implicit block.
+extern Node *program_body;
 
 void program(void);
 Node *stmt(void);

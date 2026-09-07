@@ -208,9 +208,25 @@ assert 0 'for (i=0; i<3; i=i+1) 9;'
 assert 0 ';'
 assert 1 'a=1; ; ; return a;'
 assert 0 'if (1);'
-# The cap is on top-level statements. This is exactly 100 of them and one has a
-# nested body, so it is rejected if nested statements are wrongly counted.
-assert 7 '1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;if (1) 7;'
+# There is no statement limit any more: the top level is an implicit block.
+assert 5 '1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;return 5;'
+
+# Blocks.
+assert 3 '{ 1; 2; return 3; }'
+assert 2 'if (1) { a=2; return a; } return 9;'
+assert 9 'if (0) { a=2; return a; } return 9;'
+assert 10 'i=0; while (i<10) { i=i+1; } return i;'
+assert 6 'a=0; for (i=0;i<3;i=i+1) { a=a+i; a=a+1; } return a;'
+assert 3 'i=0; for (;;) { i=i+1; if (i==3) return i; }'
+assert 3 'a=1; { a=2; { a=3; } } return a;'
+assert 7 '{{{{{{ 7; }}}}}}'
+# A block's value is its last statement's; an empty block is 0.
+assert 2 '{ 1; 2; }'
+assert 0 '{}'
+assert 0 'a=1; {} '
+assert 5 '{ 1; { 2; { 5; } } }'
+# Blocks in a loop body must not leak stack across iterations.
+assert 12 's=0; for (i=0; i<300000; i=i+1) { s=s+1; s=s+1; } return s-599988;'
 
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail '1+;'
@@ -241,5 +257,10 @@ assert_fail 'for i=0; i<3; i=i+1) 2;'
 assert_fail 'for (i=0; i<3; i=i+1 2;'
 assert_fail 'for (i=0) 2;'
 assert_fail 'for (i=0; i<3) 2;'
+assert_fail '{ 1;'
+assert_fail '{'
+assert_fail '}'
+assert_fail '{ 1; } }'
+assert_fail 'if (1) { 2;'
 
 echo "OK ($pass assertions)"

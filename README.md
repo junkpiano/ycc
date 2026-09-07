@@ -39,7 +39,8 @@ At least one statement is required; empty input is rejected.
 ## Supported grammar
 
     program    = stmt+
-    stmt       = ";"
+    stmt       = "{" stmt* "}"
+               | ";"
                | expr ";"
                | "return" expr ";"
                | "if" "(" expr ")" stmt ("else" stmt)?
@@ -54,8 +55,7 @@ At least one statement is required; empty input is rejected.
     unary      = ("+" | "-") unary | primary
     primary    = num | ident | "(" expr ")"
 
-At most 100 top-level statements -- statements nested inside a loop or a
-conditional do not count towards that. Integers are the only type. Comparisons yield 1 or 0 and
+Integers are the only type. Comparisons yield 1 or 0 and
 chain to the left, so `1<2<3` is `(1<2)<3`.
 
 `return` ends the program with the given value. Statements after it are still
@@ -77,9 +77,22 @@ All three clauses of a `for` are optional. **An omitted condition is true**, so
 `;` on its own is the null statement, which is what makes an empty loop body
 like `for (i = 0; i < 3; i = i + 1) ;` work.
 
+A block `{ ... }` groups statements and is itself a statement, so it can be a
+loop or conditional body:
+
+    for (i = 0; i < 3; i = i + 1) { a = a + i; a = a + 1; }
+
+Blocks do not introduce a scope -- a variable is visible everywhere in the
+program once its name has been seen. That changes with the type work.
+
+The whole program is itself an implicit block, so there is no limit on how many
+statements it can hold.
+
 Every statement has a value. For an expression statement that is the
 expression's value; for an `if` it is the branch taken, or 0 when the condition
-is false and there is no `else`; for a loop and for the null statement it is 0.
+is false and there is no `else`; for a loop and for the null
+statement it is 0; for a block it is its last statement's value, or 0 if it is
+empty.
 
     $ ./ycc 'a=1; if (a) 7; else 8;' > temp.s   # 7
     $ ./ycc 'if (0) 7;' > temp.s                # 0

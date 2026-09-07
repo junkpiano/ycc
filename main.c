@@ -23,12 +23,9 @@ int main(int argc, char *argv[]) {
     printf("    mov rbp, rsp\n");
     printf("    sub rsp, %d\n", frame_size());
 
-    // Each statement leaves its value on the stack. Pop it so the stack stays
-    // balanced; the last one popped is the program's value.
-    for (int i = 0; code[i] != NULL; i++) {
-        gen(code[i]);
-        printf("    pop rax\n");
-    }
+    // The program is one block, which leaves its last statement's value.
+    gen(program_body);
+    printf("    pop rax\n");
 
     // Epilogue. Every return jumps here rather than carrying its own copy.
     printf("%s:\n", RETURN_LABEL);

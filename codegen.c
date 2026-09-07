@@ -64,6 +64,20 @@ void gen(Node *node) {
             printf(".L.end.%d:\n", seq);
             return;
         }
+        case ND_BLOCK:
+        // A block's value is its last statement's, so every earlier value is
+        // popped and the last one is left for whoever consumes this block.
+        if (node->body == NULL) {
+            printf("    push 0\n");
+            return;
+        }
+        for (Node *n = node->body; n != NULL; n = n->next) {
+            gen(n);
+            if (n->next != NULL) {
+                printf("    pop rax\n");
+            }
+        }
+        return;
         case ND_NOP:
         // Does nothing, but still leaves a value for the statement-level pop.
         printf("    push 0\n");

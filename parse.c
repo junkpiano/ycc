@@ -37,7 +37,7 @@ static Node *new_num(int val) {
     return node;
 }
 
-Node *code[MAX_STATEMENTS + 1];
+Node *program_body;
 LVar *locals;
 
 // Find a local by name, or NULL. Linear scan is fine at this scale.
@@ -67,21 +67,22 @@ int frame_size(void) {
     return locals == NULL ? 0 : locals->offset;
 }
 
+// The top level is an implicit block, so there is no fixed statement limit.
 void program(void) {
-    int i = 0;
+    Node head = {0};
+    Node *cur = &head;
 
     while (!at_eof()) {
-        if (i == MAX_STATEMENTS) {
-            error_at(token->str, "too many statements (max %d)", MAX_STATEMENTS);
-        }
-        code[i++] = stmt();
+        cur->next = stmt();
+        cur = cur->next;
     }
 
-    if (i == 0) {
+    if (head.next == NULL) {
         error("empty program");
     }
 
-    code[i] = NULL;
+    program_body = new_node(ND_BLOCK);
+    program_body->body = head.next;
 }
 
 Node *stmt(void) {
@@ -90,6 +91,23 @@ Node *stmt(void) {
     // The null statement, as in "while (...) ;".
     if (consume(";")) {
         return new_node(ND_NOP);
+    }
+
+    if (consume("{")) {
+        Node head = {0};
+        Node *cur = &head;
+
+        while (!consume("}")) {
+            if (at_eof()) {
+                error_at(token->str, "unclosed block");
+            }
+            cur->next = stmt();
+            cur = cur->next;
+        }
+
+        node = new_node(ND_BLOCK);
+        node->body = head.next;
+        return node;
     }
 
     if (consume_kind(TK_IF)) {
