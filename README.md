@@ -53,10 +53,14 @@ chain to the left, so `1<2<3` is `(1<2)<3`.
 
 ## Variables
 
-Locals are the single letters `a` to `z`. Each gets its own 8-byte slot in the
-function frame, so all 26 exist from the start and none needs declaring. They
-are not initialised -- reading one before assigning to it yields whatever is in
-that slot.
+Names are `[A-Za-z_][A-Za-z0-9_]*` and are case sensitive, so `a` and `A` are
+different variables. Each name seen gets its own 8-byte slot in the function
+frame the first time it appears; there are no declarations, and no fixed limit
+on how many there can be. A local is not initialised -- reading one before
+assigning to it yields whatever is in that slot.
+
+Because a name is created on first use, a misspelling silently becomes a new
+variable rather than an error. Declarations arrive with the type work.
 
 Assignment is an expression, and is right associative, so `a = b = 3` assigns 3
 to both and evaluates to 3.

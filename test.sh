@@ -128,6 +128,22 @@ assert 1 'a=1; z=2; a;'
 assert 2 'a=1; z=2; z;'
 assert 4 'a=1; a=a+1; a=a*2; a;'
 assert 1 'a = 1 ; a ;'
+# Multi-character names, including ones that are prefixes of each other.
+assert 3 'foo=1; bar=2; foo+bar;'
+assert 25 'abc=5; abc*abc;'
+assert 1 'ab=1; ac=2; ab;'
+assert 2 'ab=1; ac=2; ac;'
+assert 1 'a=1; ab=2; a;'
+assert 2 'a=1; ab=2; ab;'
+assert 3 '_x=3; _x;'
+assert 4 'x1=4; x1;'
+assert 7 'Foo=7; Foo;'
+assert 9 'a=1; A=9; A;'
+assert 1 'a=1; A=9; a;'
+assert 30 'alpha=10; beta=20; alpha+beta;'
+# More than the 26 slots the previous fixed frame allowed.
+assert 39 'v0=0;v1=1;v2=2;v3=3;v4=4;v5=5;v6=6;v7=7;v8=8;v9=9;v10=10;v11=11;v12=12;v13=13;v14=14;v15=15;v16=16;v17=17;v18=18;v19=19;v20=20;v21=21;v22=22;v23=23;v24=24;v25=25;v26=26;v27=27;v28=28;v29=29;v30=30;v31=31;v32=32;v33=33;v34=34;v35=35;v36=36;v37=37;v38=38;v39=39;v39;'
+
 # Assignment is an expression and is right associative.
 assert 7 'a=b=7; b;'
 assert 3 'a=(b=3); a;'

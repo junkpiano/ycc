@@ -17,10 +17,11 @@ int main(int argc, char *argv[]) {
     printf(".globl main\n");
     printf("main:\n");
 
-    // Prologue: reserve one 8-byte slot for each of the 26 locals.
+    // Prologue. The frame size is only known once the whole program is
+    // parsed, which is why program() runs before any of this is emitted.
     printf("    push rbp\n");
     printf("    mov rbp, rsp\n");
-    printf("    sub rsp, %d\n", 26 * 8);
+    printf("    sub rsp, %d\n", frame_size());
 
     // Each statement leaves its value on the stack. Pop it so the stack stays
     // balanced; the last one popped is the program's value.

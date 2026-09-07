@@ -47,6 +47,22 @@ void error_at(char *loc, char *fmt, ...);
 // Parser
 //
 
+// A local variable.
+typedef struct LVar LVar;
+
+struct LVar {
+    LVar *next;
+    char *name; // not NUL-terminated; points into the input
+    int len;
+    int offset; // distance below rbp
+};
+
+// Locals of the function being parsed, most recently declared first.
+extern LVar *locals;
+
+// Bytes of stack the current function's locals need.
+int frame_size(void);
+
 typedef enum {
     ND_ADD,
     ND_SUB,

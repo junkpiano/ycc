@@ -10,6 +10,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "ycc.h"
 
@@ -37,6 +38,34 @@ static Node *new_num(int val) {
 }
 
 Node *code[MAX_STATEMENTS + 1];
+LVar *locals;
+
+// Find a local by name, or NULL. Linear scan is fine at this scale.
+static LVar *find_lvar(Token *tok) {
+    for (LVar *var = locals; var != NULL; var = var->next) {
+        if (var->len == tok->len && memcmp(var->name, tok->str, var->len) == 0) {
+            return var;
+        }
+    }
+
+    return NULL;
+}
+
+// Append a local, giving it the next slot below the last one.
+static LVar *new_lvar(Token *tok) {
+    LVar *var = calloc(1, sizeof(LVar));
+    var->next = locals;
+    var->name = tok->str;
+    var->len = tok->len;
+    var->offset = (locals == NULL ? 0 : locals->offset) + 8;
+    locals = var;
+    return var;
+}
+
+// Only known once the whole function has been parsed.
+int frame_size(void) {
+    return locals == NULL ? 0 : locals->offset;
+}
 
 void program(void) {
     int i = 0;
@@ -158,8 +187,11 @@ Node *primary(void) {
     Token *tok = consume_ident();
     if (tok != NULL) {
         Node *node = new_node(ND_LVAR);
-        // 'a' lives closest to rbp, 'z' furthest.
-        node->offset = (tok->str[0] - 'a' + 1) * 8;
+        LVar *var = find_lvar(tok);
+        if (var == NULL) {
+            var = new_lvar(tok);
+        }
+        node->offset = var->offset;
         return node;
     }
 

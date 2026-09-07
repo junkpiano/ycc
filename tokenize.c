@@ -70,6 +70,14 @@ static Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
     return tok;
 }
 
+static bool is_ident_head(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+static bool is_ident_tail(char c) {
+    return is_ident_head(c) || ('0' <= c && c <= '9');
+}
+
 static bool startswith(char *p, char *q) {
     return memcmp(p, q, strlen(q)) == 0;
 }
@@ -94,9 +102,13 @@ static Token *tokenize(char *p) {
             continue;
         }
 
-        // A single-letter local variable.
-        if ('a' <= *p && *p <= 'z') {
-            cur = new_token(TK_IDENT, cur, p++, 1);
+        // An identifier: [A-Za-z_][A-Za-z0-9_]*
+        if (is_ident_head(*p)) {
+            char *q = p;
+            do {
+                p++;
+            } while (is_ident_tail(*p));
+            cur = new_token(TK_IDENT, cur, q, p - q);
             continue;
         }
 
