@@ -63,8 +63,12 @@ static LVar *new_lvar(Token *tok) {
 }
 
 // Only known once the whole function has been parsed.
+// Rounded up to 16 so that rsp is 16-byte aligned once the frame is reserved.
+// The System V ABI requires that at a call, and keeping the base aligned means
+// alignment then depends only on how many values are pushed.
 int frame_size(void) {
-    return locals == NULL ? 0 : locals->offset;
+    int size = locals == NULL ? 0 : locals->offset;
+    return (size + 15) / 16 * 16;
 }
 
 // The top level is an implicit block, so there is no fixed statement limit.

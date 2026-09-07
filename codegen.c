@@ -4,17 +4,60 @@
 // Code Generator
 //
 
-// Evaluate both children, leaving the left operand in rax and the right in rdi.
-static void gen_operands(Node *node) {
-    gen(node->lhs);
-    gen(node->rhs);
-
-    printf("    pop rdi\n");
-    printf("    pop rax\n");
-}
-
 // Distinguishes the labels of one control-flow construct from another.
 static int label_seq = 0;
+
+// Number of 8-byte values pushed on the path that falls through to here.
+// Every gen() leaves exactly one, so this is known at compile time and needs no
+// runtime test to decide whether a call site must be padded.
+static int depth = 0;
+
+static void push(char *operand) {
+    printf("    push %s\n", operand);
+    depth++;
+}
+
+static void push_int(int val) {
+    printf("    push %d\n", val);
+    depth++;
+}
+
+static void pop(char *reg) {
+    printf("    pop %s\n", reg);
+    depth--;
+}
+
+// True when rsp is 8 mod 16, so a call from here needs padding. The frame is a
+// multiple of 16, so alignment depends only on how many values are pushed.
+bool stack_misaligned(void) {
+    return depth % 2 != 0;
+}
+
+int stack_depth(void) {
+    return depth;
+}
+
+// gen() a node that must leave exactly one value, and verify that it did.
+// Checking at each site matters: an if arm rewinds the count before the other
+// arm runs, so a miscount there would otherwise be erased and the final total
+// would still come out right.
+static void gen_one(Node *node) {
+    int before = depth;
+    gen(node);
+    if (depth != before + 1) {
+        error("codegen: node kind %d left depth %d, expected %d",
+              node->kind, depth, before + 1);
+    }
+}
+
+// Evaluate both children, leaving the left operand in rax and the right in rdi.
+static void gen_operands(Node *node) {
+    gen_one(node->lhs);
+    gen_one(node->rhs);
+
+    pop("rdi");
+    pop("rax");
+}
 
 // Push the address of a node that can be assigned to.
 static void gen_lval(Node *node) {
@@ -24,7 +67,7 @@ static void gen_lval(Node *node) {
 
     printf("    mov rax, rbp\n");
     printf("    sub rax, %d\n", node->offset);
-    printf("    push rax\n");
+    push("rax");
 }
 
 // Each kind drives its own recursion, so an unknown kind is rejected before
@@ -36,30 +79,34 @@ void gen(Node *node) {
 
     switch (node->kind) {
         case ND_NUM:
-        printf("    push %d\n", node->val);
+        push_int(node->val);
         return;
         case ND_LVAR:
         gen_lval(node);
-        printf("    pop rax\n");
+        pop("rax");
         printf("    mov rax, [rax]\n");
-        printf("    push rax\n");
+        push("rax");
         return;
         case ND_IF: {
             // Every statement leaves exactly one value for the statement-level
             // pop, so both arms must push. An if with no else and a false
             // condition pushes 0.
             int seq = label_seq++;
-            gen(node->cond);
-            printf("    pop rax\n");
+            gen_one(node->cond);
+            pop("rax");
             printf("    cmp rax, 0\n");
             printf("    je .L.else.%d\n", seq);
-            gen(node->then);
+            // Both arms leave one value, so they must be counted once, not
+            // twice: rewind to the branch point before generating the else.
+            int branch_depth = depth;
+            gen_one(node->then);
             printf("    jmp .L.end.%d\n", seq);
             printf(".L.else.%d:\n", seq);
+            depth = branch_depth;
             if (node->els != NULL) {
-                gen(node->els);
+                gen_one(node->els);
             } else {
-                printf("    push 0\n");
+                push_int(0);
             }
             printf(".L.end.%d:\n", seq);
             return;
@@ -68,77 +115,80 @@ void gen(Node *node) {
         // A block's value is its last statement's, so every earlier value is
         // popped and the last one is left for whoever consumes this block.
         if (node->body == NULL) {
-            printf("    push 0\n");
+            push_int(0);
             return;
         }
         for (Node *n = node->body; n != NULL; n = n->next) {
-            gen(n);
+            gen_one(n);
             if (n->next != NULL) {
-                printf("    pop rax\n");
+                pop("rax");
             }
         }
         return;
         case ND_NOP:
         // Does nothing, but still leaves a value for the statement-level pop.
-        printf("    push 0\n");
+        push_int(0);
         return;
         case ND_WHILE: {
             int seq = label_seq++;
             printf(".L.begin.%d:\n", seq);
-            gen(node->cond);
-            printf("    pop rax\n");
+            gen_one(node->cond);
+            pop("rax");
             printf("    cmp rax, 0\n");
             printf("    je .L.end.%d\n", seq);
-            gen(node->then);
+            gen_one(node->then);
             // Discard the body's value, or the stack grows by one per
             // iteration.
-            printf("    pop rax\n");
+            pop("rax");
             printf("    jmp .L.begin.%d\n", seq);
             printf(".L.end.%d:\n", seq);
             // The loop's own value, so the statement-level pop has one.
-            printf("    push 0\n");
+            push_int(0);
             return;
         }
         case ND_FOR: {
             int seq = label_seq++;
             if (node->init != NULL) {
-                gen(node->init);
-                printf("    pop rax\n");
+                gen_one(node->init);
+                pop("rax");
             }
             printf(".L.begin.%d:\n", seq);
             // An omitted condition is true: fall straight through to the body.
             if (node->cond != NULL) {
-                gen(node->cond);
-                printf("    pop rax\n");
+                gen_one(node->cond);
+                pop("rax");
                 printf("    cmp rax, 0\n");
                 printf("    je .L.end.%d\n", seq);
             }
-            gen(node->then);
-            printf("    pop rax\n");
+            gen_one(node->then);
+            pop("rax");
             if (node->inc != NULL) {
-                gen(node->inc);
-                printf("    pop rax\n");
+                gen_one(node->inc);
+                pop("rax");
             }
             printf("    jmp .L.begin.%d\n", seq);
             printf(".L.end.%d:\n", seq);
-            printf("    push 0\n");
+            push_int(0);
             return;
         }
         case ND_RETURN:
-        gen(node->lhs);
-        printf("    pop rax\n");
+        gen_one(node->lhs);
+        pop("rax");
         // Jump to the single epilogue rather than duplicating it here.
         printf("    jmp %s\n", RETURN_LABEL);
-        // The value is not pushed: control never reaches the statement pop.
+        // Nothing is pushed, because control never falls through to the
+        // statement pop. Count one anyway so the caller's accounting matches
+        // the unreachable instructions that follow.
+        depth++;
         return;
         case ND_ASSIGN:
         gen_lval(node->lhs);
-        gen(node->rhs);
-        printf("    pop rdi\n");
-        printf("    pop rax\n");
+        gen_one(node->rhs);
+        pop("rdi");
+        pop("rax");
         printf("    mov [rax], rdi\n");
         // Assignment is an expression: its value is the value stored.
-        printf("    push rdi\n");
+        push("rdi");
         return;
         case ND_ADD:
         gen_operands(node);
@@ -185,5 +235,18 @@ void gen(Node *node) {
         error("codegen: unhandled node kind %d", node->kind);
     }
 
-    printf("    push rax\n");
+    push("rax");
+}
+
+// Emit the whole program, leaving its value in rax.
+void gen_program(Node *node) {
+    gen_one(node);
+    pop("rax");
+
+    // gen_one() has already checked each individual site; this catches anything
+    // left over, so a construct that pushes or pops the wrong number of times
+    // shows up here rather than as a corrupted return address at runtime.
+    if (depth != 0) {
+        error("codegen: stack depth is %d at end of program, expected 0", depth);
+    }
 }

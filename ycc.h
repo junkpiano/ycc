@@ -146,6 +146,9 @@ Node *primary(void);
 // Code Generator
 //
 void gen(Node *node);
+void gen_program(Node *node);
+bool stack_misaligned(void);
+int stack_depth(void);
 
 // Label the epilogue jumps to.
 #define RETURN_LABEL ".L.return"

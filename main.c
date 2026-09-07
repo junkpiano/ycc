@@ -24,8 +24,7 @@ int main(int argc, char *argv[]) {
     printf("    sub rsp, %d\n", frame_size());
 
     // The program is one block, which leaves its last statement's value.
-    gen(program_body);
-    printf("    pop rax\n");
+    gen_program(program_body);
 
     // Epilogue. Every return jumps here rather than carrying its own copy.
     printf("%s:\n", RETURN_LABEL);

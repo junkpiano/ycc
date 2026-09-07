@@ -124,6 +124,32 @@ to both and evaluates to 3.
     $ ./temp; echo $?
     14
 
+## Stack discipline
+
+Every generated node leaves exactly one 8-byte value on the stack, and the code
+generator counts them as it emits. `return` is the one exception, and only on
+paper: it jumps to the epilogue instead of falling through, so it pushes
+nothing, but is counted as one so that the unreachable instructions after it
+still balance in the enclosing accounting.
+
+Two things follow.
+
+A mistake in that accounting is caught at compile time rather than becoming a
+corrupted return address at run time. The count is checked at every site that
+expects a value, not only at the end. Checking only at the end would not be
+enough: the two arms of an `if` must each leave one value, so the count is
+rewound between them, and a miscount inside one arm would be erased by that
+rewind while the total still came out right.
+
+Alignment is known statically. The System V ABI requires `rsp` to be 16-byte
+aligned at a `call`. The frame reserved by the prologue is rounded up to a
+multiple of 16, so after `push rbp` the base is aligned and whether padding is
+needed at a given point depends only on whether the running count is odd. No
+runtime test is required.
+
+There are no calls yet, so nothing consumes this — it is the groundwork for
+them.
+
 ## Source layout
 
 | File | Contents |
