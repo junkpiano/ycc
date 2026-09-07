@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS=-std=c11 -g3 -static
+CFLAGS=-std=c11 -g3 -static -Wall -Wextra -Wswitch-enum
 SRCS = $(wildcard *.c)
 OBJS = $(SRCS:.c=.o)
 

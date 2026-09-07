@@ -1,5 +1,5 @@
 /**
- * @file ycc.c
+ * @file parse.c
  * @author Yusuke Ohashi(mail@yusuke.cloud)
  * @brief 
  * @version 0.1
@@ -48,7 +48,7 @@ void error_at(char *loc, char *fmt, ...) {
 
 bool consume(char *op) {
     if (token->kind != TK_RESERVED || 
-    strlen(op) != token->len ||
+    (int)strlen(op) != token->len ||
     /* if they match each other, it's 0(false). Anything that is not 0 is true in C. */
     memcmp(token->str, op, token->len)) {
         return false;
@@ -60,7 +60,7 @@ bool consume(char *op) {
 
 void expect(char *op) {
     if (token->kind != TK_RESERVED ||
-    strlen(op) != token->len ||
+    (int)strlen(op) != token->len ||
     memcmp(token->str, op, token->len)) {
         error_at(token->str, "This is not '%s'", op);
     }

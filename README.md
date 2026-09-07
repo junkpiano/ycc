@@ -11,6 +11,11 @@ stdout.
 
     make
 
+Builds with `-Wall -Wextra -Wswitch-enum`. `-Wswitch-enum` is deliberate: the
+code generator's switch has a `default:` that rejects unknown node kinds at
+runtime, and that suppresses plain `-Wswitch`, so a node kind added without a
+codegen case would otherwise go unreported at compile time.
+
 ## Usage
 
 `ycc` emits assembly for one expression. Running the result exits with that
@@ -42,6 +47,10 @@ Integers are the only type. Comparisons yield 1 or 0 and chain to the left, so
 `test.sh` compiles each case, assembles and links it with the system `cc`, runs
 it, and compares the exit status against the expected value. Expected values are
 therefore limited to 0-255.
+
+`assert_fail` covers the other direction: the input must be rejected with a
+non-zero status and a diagnostic on stderr. The script stops at the first
+failure and prints the number of assertions that passed.
 
 ## Author
 
