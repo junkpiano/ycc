@@ -125,6 +125,38 @@ void gen(Node *node) {
             }
         }
         return;
+        case ND_FUNCALL: {
+            static char *argregs[MAX_ARGS] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
+            // Evaluate left to right, then pop in reverse so the first
+            // argument ends up in the first register.
+            for (Node *arg = node->args; arg != NULL; arg = arg->next) {
+                gen_one(arg);
+            }
+            for (int i = node->nargs - 1; i >= 0; i--) {
+                pop(argregs[i]);
+            }
+
+            // The ABI wants rsp 16-byte aligned at the call. The frame is a
+            // multiple of 16, so this is decided by the count, not a runtime
+            // test.
+            bool pad = stack_misaligned();
+            if (pad) {
+                printf("    sub rsp, 8\n");
+            }
+            // Number of vector registers used, which a variadic callee reads.
+            printf("    mov rax, 0\n");
+            printf("    call %.*s\n", node->funcname_len, node->funcname);
+            if (pad) {
+                printf("    add rsp, 8\n");
+            }
+            // An int result comes back in eax, which leaves the top half of
+            // rax zero. Sign-extend it, or a negative return reads as a large
+            // positive number in every comparison.
+            printf("    movsx rax, eax\n");
+            push("rax");
+            return;
+        }
         case ND_NOP:
         // Does nothing, but still leaves a value for the statement-level pop.
         push_int(0);

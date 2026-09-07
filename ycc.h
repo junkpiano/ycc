@@ -86,6 +86,7 @@ typedef enum {
     ND_FOR,
     ND_NOP,
     ND_BLOCK,
+    ND_FUNCALL,
     ND_NUM,
 } NodeKind;
 
@@ -104,8 +105,15 @@ struct Node {
     Node *inc;
 
     // ND_BLOCK: the statements, chained through next.
+    // ND_FUNCALL: the arguments, chained through next.
     Node *body;
     Node *next;
+
+    // ND_FUNCALL
+    char *funcname;
+    int funcname_len;
+    Node *args;
+    int nargs;
 
     int val;    // ND_NUM only
     int offset; // ND_LVAR only: distance below rbp
@@ -126,7 +134,9 @@ struct Node {
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-") unary | primary
-// primary = num | ident | "(" expr ")"
+// primary = num
+//         | ident ("(" (expr ("," expr)*)? ")")?
+//         | "(" expr ")"
 
 // The whole program, as one implicit block.
 extern Node *program_body;
@@ -145,6 +155,9 @@ Node *primary(void);
 //
 // Code Generator
 //
+// Argument registers, in order.
+#define MAX_ARGS 6
+
 void gen(Node *node);
 void gen_program(Node *node);
 bool stack_misaligned(void);

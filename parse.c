@@ -264,6 +264,32 @@ Node *primary(void) {
 
     Token *tok = consume_ident();
     if (tok != NULL) {
+        // A "(" here makes it a call rather than a variable reference.
+        if (consume("(")) {
+            Node *node = new_node(ND_FUNCALL);
+            node->funcname = tok->str;
+            node->funcname_len = tok->len;
+
+            Node head = {0};
+            Node *cur = &head;
+            if (!consume(")")) {
+                for (;;) {
+                    cur->next = expr();
+                    cur = cur->next;
+                    node->nargs++;
+                    if (!consume(",")) {
+                        break;
+                    }
+                }
+                expect(")");
+            }
+            if (node->nargs > MAX_ARGS) {
+                error_at(tok->str, "too many arguments (max %d)", MAX_ARGS);
+            }
+            node->args = head.next;
+            return node;
+        }
+
         Node *node = new_node(ND_LVAR);
         LVar *var = find_lvar(tok);
         if (var == NULL) {

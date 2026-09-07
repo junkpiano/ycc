@@ -44,3 +44,4 @@ temp.s
 # Private notes
 docs/
 temp.err
+temp-helper.o

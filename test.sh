@@ -2,6 +2,10 @@
 
 pass=0
 
+# Functions the compiled programs call. Built once rather than per assertion.
+HELPER=temp-helper.o
+cc -c -o "$HELPER" tests/helper.c || exit 1
+
 # Compile, assemble and run the input, and compare the exit status.
 assert() {
     expected="$1"
@@ -15,7 +19,7 @@ assert() {
         rm -f temp.s
         exit 1
     fi
-    if ! cc -o temp temp.s; then
+    if ! cc -o temp temp.s "$HELPER"; then
         echo "$input => generated assembly did not build"
         rm -f temp temp.s
         exit 1
@@ -228,6 +232,36 @@ assert 5 '{ 1; { 2; { 5; } } }'
 # Blocks in a loop body must not leak stack across iterations.
 assert 12 's=0; for (i=0; i<300000; i=i+1) { s=s+1; s=s+1; } return s-599988;'
 
+# Function calls. The callees live in tests/helper.c.
+assert 3 'return ret3();'
+assert 7 'return ret7();'
+assert 10 'return ret3() + ret7();'
+assert 7 'return add2(3, 4);'
+assert 1 'return sub2(4, 3);'
+assert 21 'return add6(1, 2, 3, 4, 5, 6);'
+assert 18 'return add6(1, 2, 3, 4, 5, ret3());'
+assert 21 'a=1; b=2; return add6(a, b, 3, 4, 5, 6);'
+assert 8 'return add2(add2(1, 2), add2(2, 3));'
+assert 3 'i=0; while (i<3) i=i+1; return ret3();'
+assert 6 's=0; for (i=0; i<2; i=i+1) s=s+ret3(); return s;'
+assert 3 'if (1) return ret3(); return 9;'
+# An int result arrives in eax, so it must be sign-extended into rax. Comparing
+# only exit statuses would not catch this: -1 and 4294967295 share a low byte.
+assert 1 'return sub2(3, 4) < 0;'
+assert 1 'return sub2(3, 4) == 0-1;'
+assert 10 'return sub2(3, 4) + 11;'
+assert 1 'return 0 - sub2(3, 4);'
+assert 1 'return sub2(3, 4) < sub2(4, 3);'
+assert 0 'return sub2(4, 3) < 0;'
+# rsp must be 16-byte aligned at a call. rsp_aligned() reports whether it was.
+# The second case calls from an odd stack depth, which needs the padding.
+assert 1 'return rsp_aligned();'
+assert 1 'return 0 + rsp_aligned();'
+assert 1 'return 0 + (0 + rsp_aligned());'
+assert 2 'a=1; return a + rsp_aligned();'
+assert 1 'return add2(rsp_aligned(), 0);'
+assert 1 'return add6(1, 2, 3, 4, 5, rsp_aligned()) - 15;'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail '1+;'
 assert_fail '(1;'
@@ -262,5 +296,10 @@ assert_fail '{'
 assert_fail '}'
 assert_fail '{ 1; } }'
 assert_fail 'if (1) { 2;'
+assert_fail 'return add6(1,2,3,4,5,6,7);'
+assert_fail 'return ret3(;'
+assert_fail 'return ret3(1,);'
+assert_fail 'return ret3(,1);'
 
+rm -f "$HELPER"
 echo "OK ($pass assertions)"

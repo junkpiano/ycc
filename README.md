@@ -53,7 +53,9 @@ At least one statement is required; empty input is rejected.
     add        = mul ("+" mul | "-" mul)*
     mul        = unary ("*" unary | "/" unary)*
     unary      = ("+" | "-") unary | primary
-    primary    = num | ident | "(" expr ")"
+    primary    = num
+               | ident ("(" (expr ("," expr)*)? ")")?
+               | "(" expr ")"
 
 Integers are the only type. Comparisons yield 1 or 0 and
 chain to the left, so `1<2<3` is `(1<2)<3`.
@@ -124,6 +126,25 @@ to both and evaluates to 3.
     $ ./temp; echo $?
     14
 
+## Function calls
+
+A name followed by `(` is a call. Up to six arguments, passed in `rdi`, `rsi`,
+`rdx`, `rcx`, `r8`, `r9` as the System V ABI requires; a seventh is rejected.
+Arguments are evaluated left to right.
+
+An `int` result arrives in `eax`, so it is sign-extended into `rax` before use.
+Without that a negative return reads as a large positive number in any
+comparison, while still looking correct as an exit status — the low byte is the
+same either way.
+
+There is no way to *define* a function yet, so the callee has to come from
+somewhere else — the test suite links `tests/helper.c`.
+
+    $ ./ycc 'return add2(3, 4);' > temp.s
+    $ cc -o temp temp.s tests/helper.c
+    $ ./temp; echo $?
+    7
+
 ## Stack discipline
 
 Every generated node leaves exactly one 8-byte value on the stack, and the code
@@ -147,8 +168,11 @@ multiple of 16, so after `push rbp` the base is aligned and whether padding is
 needed at a given point depends only on whether the running count is odd. No
 runtime test is required.
 
-There are no calls yet, so nothing consumes this — it is the groundwork for
-them.
+Calls use this: a call site pads with `sub rsp, 8` exactly when the count is
+odd. `tests/helper.c` provides `rsp_aligned()`, which reports whether `rsp` was
+aligned at the call, and the suite asserts it from both even and odd depths.
+Removing the padding makes the odd-depth case fail, so the assertion is real
+rather than decorative.
 
 ## Source layout
 
@@ -159,6 +183,7 @@ them.
 | `parse.c` | Recursive descent over the grammar above, building the AST |
 | `codegen.c` | Walks the AST and emits assembly |
 | `main.c` | Entry point, and error reporting |
+| `tests/helper.c` | Functions the test programs call, since ycc cannot define any yet |
 
 ## Test
 
