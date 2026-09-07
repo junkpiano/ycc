@@ -22,9 +22,10 @@ declaration, which usually means it should have been `static`.
 
 ## Usage
 
-A program is a sequence of statements, each an expression followed by `;`.
-Statements are evaluated in order and the program takes the value of the last
-one reached -- or of the first `return` taken, which stops there. Running the
+A program is a sequence of statements: an expression followed by `;`, a bare `;`,
+a `return`, or one of the control-flow forms below. Statements are evaluated in
+order and the program takes the value of the last one reached -- or of the first
+`return` taken, which stops there. Running the
 result exits with that value, so only its low 8 bits survive: `300` exits with
 status 44, and `-5` with status 251.
 
@@ -38,9 +39,12 @@ At least one statement is required; empty input is rejected.
 ## Supported grammar
 
     program    = stmt+
-    stmt       = expr ";"
+    stmt       = ";"
+               | expr ";"
                | "return" expr ";"
                | "if" "(" expr ")" stmt ("else" stmt)?
+               | "while" "(" expr ")" stmt
+               | "for" "(" expr? ";" expr? ";" expr? ")" stmt
     expr       = assign
     assign     = equality ("=" assign)?
     equality   = relational ("==" relational | "!=" relational)*
@@ -50,7 +54,8 @@ At least one statement is required; empty input is rejected.
     unary      = ("+" | "-") unary | primary
     primary    = num | ident | "(" expr ")"
 
-At most 100 statements. Integers are the only type. Comparisons yield 1 or 0 and
+At most 100 top-level statements -- statements nested inside a loop or a
+conditional do not count towards that. Integers are the only type. Comparisons yield 1 or 0 and
 chain to the left, so `1<2<3` is `(1<2)<3`.
 
 `return` ends the program with the given value. Statements after it are still
@@ -63,17 +68,29 @@ than carrying its own copy.
 
 An `else` binds to the nearest unmatched `if`.
 
-An `if` is a statement, and like every statement it has a value: that of
-whichever branch was taken. With no `else` and a false condition, that value is
-0.
+    while (i < 10) i = i + 1;
+    for (i = 0; i < 5; i = i + 1) s = s + i;
+
+All three clauses of a `for` are optional. **An omitted condition is true**, so
+`for (;;)` loops forever and needs a `return` to escape it.
+
+`;` on its own is the null statement, which is what makes an empty loop body
+like `for (i = 0; i < 3; i = i + 1) ;` work.
+
+Every statement has a value. For an expression statement that is the
+expression's value; for an `if` it is the branch taken, or 0 when the condition
+is false and there is no `else`; for a loop and for the null statement it is 0.
 
     $ ./ycc 'a=1; if (a) 7; else 8;' > temp.s   # 7
     $ ./ycc 'if (0) 7;' > temp.s                # 0
 
+There is no `break` or `continue` yet.
+
 ## Keywords
 
-`return`, `if` and `else`. Each is a keyword only when it is a whole identifier,
-so `returnx`, `iffy` and `elsewhere` are ordinary variable names.
+`return`, `if`, `else`, `while` and `for`. Each is a keyword only when it is a
+whole identifier, so `returnx`, `iffy`, `elsewhere`, `whilst` and `format` are
+ordinary variable names.
 
 ## Variables
 

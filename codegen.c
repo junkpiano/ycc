@@ -64,6 +64,52 @@ void gen(Node *node) {
             printf(".L.end.%d:\n", seq);
             return;
         }
+        case ND_NOP:
+        // Does nothing, but still leaves a value for the statement-level pop.
+        printf("    push 0\n");
+        return;
+        case ND_WHILE: {
+            int seq = label_seq++;
+            printf(".L.begin.%d:\n", seq);
+            gen(node->cond);
+            printf("    pop rax\n");
+            printf("    cmp rax, 0\n");
+            printf("    je .L.end.%d\n", seq);
+            gen(node->then);
+            // Discard the body's value, or the stack grows by one per
+            // iteration.
+            printf("    pop rax\n");
+            printf("    jmp .L.begin.%d\n", seq);
+            printf(".L.end.%d:\n", seq);
+            // The loop's own value, so the statement-level pop has one.
+            printf("    push 0\n");
+            return;
+        }
+        case ND_FOR: {
+            int seq = label_seq++;
+            if (node->init != NULL) {
+                gen(node->init);
+                printf("    pop rax\n");
+            }
+            printf(".L.begin.%d:\n", seq);
+            // An omitted condition is true: fall straight through to the body.
+            if (node->cond != NULL) {
+                gen(node->cond);
+                printf("    pop rax\n");
+                printf("    cmp rax, 0\n");
+                printf("    je .L.end.%d\n", seq);
+            }
+            gen(node->then);
+            printf("    pop rax\n");
+            if (node->inc != NULL) {
+                gen(node->inc);
+                printf("    pop rax\n");
+            }
+            printf("    jmp .L.begin.%d\n", seq);
+            printf(".L.end.%d:\n", seq);
+            printf("    push 0\n");
+            return;
+        }
         case ND_RETURN:
         gen(node->lhs);
         printf("    pop rax\n");

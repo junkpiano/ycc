@@ -87,6 +87,8 @@ static const struct {
     {"return", TK_RETURN},
     {"if", TK_IF},
     {"else", TK_ELSE},
+    {"while", TK_WHILE},
+    {"for", TK_FOR},
 };
 
 // The token kind for an identifier of the given length: a keyword kind if it

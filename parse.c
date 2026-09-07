@@ -87,6 +87,11 @@ void program(void) {
 Node *stmt(void) {
     Node *node;
 
+    // The null statement, as in "while (...) ;".
+    if (consume(";")) {
+        return new_node(ND_NOP);
+    }
+
     if (consume_kind(TK_IF)) {
         node = new_node(ND_IF);
         expect("(");
@@ -97,6 +102,36 @@ Node *stmt(void) {
         if (consume_kind(TK_ELSE)) {
             node->els = stmt();
         }
+        return node;
+    }
+
+    if (consume_kind(TK_WHILE)) {
+        node = new_node(ND_WHILE);
+        expect("(");
+        node->cond = expr();
+        expect(")");
+        node->then = stmt();
+        return node;
+    }
+
+    if (consume_kind(TK_FOR)) {
+        node = new_node(ND_FOR);
+        expect("(");
+        // All three clauses are optional. An omitted condition is true, not
+        // false, so for(;;) loops forever.
+        if (!consume(";")) {
+            node->init = expr();
+            expect(";");
+        }
+        if (!consume(";")) {
+            node->cond = expr();
+            expect(";");
+        }
+        if (!consume(")")) {
+            node->inc = expr();
+            expect(")");
+        }
+        node->then = stmt();
         return node;
     }
 

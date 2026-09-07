@@ -187,6 +187,30 @@ assert 2 'a=1; if (a) a=2; else a=3; if (0) 9; a;'
 # Keywords are only keywords as whole identifiers.
 assert 3 'iffy=3; iffy;'
 assert 4 'elsewhere=4; elsewhere;'
+assert 5 'whilst=5; whilst;'
+assert 6 'format=6; format;'
+
+# while and for.
+assert 10 'i=0; while (i<10) i=i+1; return i;'
+assert 3 'i=0; while (i<3) i=i+1; i;'
+assert 5 'i=5; while (0) i=1; return i;'
+assert 10 'a=0; for (i=0; i<5; i=i+1) a=a+i; return a;'
+assert 3 'for (i=0; i<3; i=i+1) ; return i;'
+assert 4 'i=0; for (; i<4; i=i+1) 1; return i;'
+assert 9 'i=0; for (i=9;;) return i;'
+assert 7 'a=1; for (;;) return 7;'
+assert 55 's=0; for (i=1; i<11; i=i+1) s=s+i; return s;'
+assert 12 's=0; for (i=0; i<500000; i=i+1) s=s+1; return s-499988;'
+# A loop is a statement and leaves a value of 0, like an if with no else.
+assert 0 'i=0; while (i<3) i=i+1;'
+assert 0 'for (i=0; i<3; i=i+1) 9;'
+# The null statement.
+assert 0 ';'
+assert 1 'a=1; ; ; return a;'
+assert 0 'if (1);'
+# The cap is on top-level statements. This is exactly 100 of them and one has a
+# nested body, so it is rejected if nested statements are wrongly counted.
+assert 7 '1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;if (1) 7;'
 
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail '1+;'
@@ -199,7 +223,6 @@ assert_fail ');'
 assert_fail ''
 assert_fail '1'
 assert_fail '1; 2'
-assert_fail ';'
 assert_fail '1=2;'
 assert_fail 'a+b=3;'
 assert_fail 'a=;'
@@ -209,9 +232,14 @@ assert_fail 'return'
 assert_fail 'return return 1;'
 assert_fail 'if 1) return 2;'
 assert_fail 'if (1 return 2;'
-assert_fail 'if (1);'
 assert_fail 'if () return 1;'
 assert_fail 'else return 1;'
-assert_fail 'if (1) return 2; else;'
+assert_fail 'while 1) 2;'
+assert_fail 'while (1 2;'
+assert_fail 'while () 2;'
+assert_fail 'for i=0; i<3; i=i+1) 2;'
+assert_fail 'for (i=0; i<3; i=i+1 2;'
+assert_fail 'for (i=0) 2;'
+assert_fail 'for (i=0; i<3) 2;'
 
 echo "OK ($pass assertions)"

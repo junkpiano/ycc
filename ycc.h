@@ -14,6 +14,8 @@ typedef enum {
     TK_RETURN,
     TK_IF,
     TK_ELSE,
+    TK_WHILE,
+    TK_FOR,
     TK_NUM,
     TK_EOF,
 } TokenKind;
@@ -80,6 +82,9 @@ typedef enum {
     ND_LVAR,
     ND_RETURN,
     ND_IF,
+    ND_WHILE,
+    ND_FOR,
+    ND_NOP,
     ND_NUM,
 } NodeKind;
 
@@ -90,19 +95,24 @@ struct Node {
     Node *lhs;
     Node *rhs;
 
-    // ND_IF
+    // ND_IF, ND_WHILE, ND_FOR
     Node *cond;
     Node *then;
     Node *els;
+    Node *init;
+    Node *inc;
 
     int val;    // ND_NUM only
     int offset; // ND_LVAR only: distance below rbp
 };
 
 // program = stmt+
-// stmt = expr ";"
+// stmt = ";"
+//      | expr ";"
 //      | "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "while" "(" expr ")" stmt
+//      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
 // expr = assign
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
