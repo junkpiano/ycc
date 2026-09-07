@@ -231,11 +231,11 @@ Node *mul() {
 
 Node *unary() {
     if (consume("+")) {
-        return primary();
+        return unary();
     }
 
     if (consume("-")) {
-        return new_binary(ND_SUB, new_num(0), primary());
+        return new_binary(ND_SUB, new_num(0), unary());
     }
 
     return primary();

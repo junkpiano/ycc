@@ -55,4 +55,12 @@ assert 0 '1>2>3'
 assert 1 '1==1==1'
 assert 1 '3>2<2'
 assert 1 '3>=2<2'
+# Nested unary signs. -5 as an exit status is 251.
+assert 5 '- -5'
+assert 5 '- - 5'
+assert 251 '-+5'
+assert 251 '+-5'
+assert 251 '- - -5'
+assert 5 '-(-5)'
+assert 30 '- -10+20'
 echo OK
