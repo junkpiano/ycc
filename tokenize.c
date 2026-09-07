@@ -90,6 +90,7 @@ static const struct {
     {"while", TK_WHILE},
     {"for", TK_FOR},
     {"int", TK_INT},
+    {"sizeof", TK_SIZEOF},
 };
 
 // The token kind for an identifier of the given length: a keyword kind if it

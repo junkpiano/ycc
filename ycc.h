@@ -17,6 +17,7 @@ typedef enum {
     TK_WHILE,
     TK_FOR,
     TK_INT,
+    TK_SIZEOF,
     TK_NUM,
     TK_EOF,
 } TokenKind;
@@ -111,6 +112,7 @@ typedef enum {
     ND_FUNCALL,
     ND_ADDR,
     ND_DEREF,
+    ND_SIZEOF,
     ND_NUM,
 } NodeKind;
 
@@ -163,7 +165,9 @@ struct Node {
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-" | "*" | "&") unary | primary
+// unary = "sizeof" unary
+//       | ("+" | "-" | "*" | "&") unary
+//       | primary
 // primary = num
 //         | ident ("(" (expr ("," expr)*)? ")")?
 //         | "(" expr ")"

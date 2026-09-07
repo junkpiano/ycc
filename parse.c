@@ -342,6 +342,13 @@ Node *mul(void) {
 }
 
 Node *unary(void) {
+    // Folded to a constant by add_type(), once the operand's type is known.
+    if (consume_kind(TK_SIZEOF)) {
+        Node *node = new_node(ND_SIZEOF);
+        node->lhs = unary();
+        return node;
+    }
+
     if (consume("+")) {
         return unary();
     }

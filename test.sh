@@ -194,6 +194,7 @@ assert 4 'int main() { int elsewhere; elsewhere=4; elsewhere; }'
 assert 5 'int main() { int whilst; whilst=5; whilst; }'
 assert 7 'int main() { int integer; integer=7; integer; }'
 assert 6 'int main() { int format; format=6; format; }'
+assert 4 'int main() { int sizeofx; sizeofx=4; sizeofx; }'
 
 # while and for.
 assert 10 'int main() { int i; i=0; while (i<10) i=i+1; return i; }'
@@ -333,6 +334,23 @@ assert 1 'int main() { int x; int *p; int **q; p=&x; q=&p; return (q+1)-q; }'
 # ptr - ptr is a count of elements, not bytes.
 assert 1 'int main() { int a; int b; int *p; int *q; p=&a; q=&b; return p-q; }'
 
+# sizeof. Every type is 8 bytes here, int included, until char arrives.
+assert 8 'int main() { return sizeof(1); }'
+assert 8 'int main() { int x; return sizeof(x); }'
+assert 8 'int main() { int *p; return sizeof(p); }'
+assert 8 'int main() { int **q; return sizeof(q); }'
+assert 8 'int main() { int x; return sizeof(x + 1); }'
+assert 8 'int main() { int x; int *p; return sizeof(*p) + sizeof(&x) - 8; }'
+assert 8 'int main() { return sizeof sizeof 1; }'
+assert 8 'int main() { return sizeof(sizeof(1)); }'
+# The operand is typed but never evaluated.
+assert 1 'int main() { int x; x=1; sizeof(x=2); return x; }'
+assert 3 'int main() { int i; i=3; sizeof(i=9); return i; }'
+assert 5 'int f(int a) { return 0; } int main() { int x; x=5; sizeof(f(x=9)); return x; }'
+# The operand's type can depend on a signature that appears later.
+assert 8 'int main() { int x; return sizeof(later(&x)); } int *later(int *p) { return p; }'
+assert 8 'int *f(int *p) { return p; } int main() { int x; return sizeof(f(&x)); }'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail 'int main() { 1+; }'
 assert_fail 'int main() { (1; }'
@@ -399,6 +417,9 @@ assert_fail 'int main() { int; return 1; }'
 assert_fail 'int main() { int 1; return 1; }'
 assert_fail 'int f(a) { return a; } int main() { return f(1); }'
 assert_fail 'int main() { return undeclared; }'
+assert_fail 'int main() { return sizeof; }'
+assert_fail 'int main() { return sizeof(); }'
+assert_fail 'int main() { int sizeof; return 1; }'
 
 rm -f "$HELPER"
 echo "OK ($pass assertions)"

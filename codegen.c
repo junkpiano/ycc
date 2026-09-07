@@ -199,6 +199,11 @@ void gen(Node *node) {
         printf("    mov rax, [rax]\n");
         push("rax");
         return;
+        case ND_SIZEOF:
+        // add_type() rewrites these into constants, so reaching codegen means
+        // the typing pass did not run over this node.
+        error("codegen: sizeof was not folded");
+        return;
         case ND_NOP:
         // Does nothing, but still leaves a value for the statement-level pop.
         push_int(0);

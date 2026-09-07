@@ -58,7 +58,9 @@ At least one function is required; empty input is rejected.
     relational = add ("<" add | "<=" add | ">" add | ">=" add)*
     add        = mul ("+" mul | "-" mul)*
     mul        = unary ("*" unary | "/" unary)*
-    unary      = ("+" | "-" | "*" | "&") unary | primary
+    unary      = "sizeof" unary
+               | ("+" | "-" | "*" | "&") unary
+               | primary
     primary    = num
                | ident ("(" (expr ("," expr)*)? ")")?
                | "(" expr ")"
@@ -111,9 +113,9 @@ There is no `break` or `continue` yet.
 
 ## Keywords
 
-`return`, `if`, `else`, `while`, `for` and `int`. Each is a keyword only when it
-is a whole identifier, so `returnx`, `iffy`, `elsewhere`, `whilst`, `format` and
-`integer` are ordinary variable names.
+`return`, `if`, `else`, `while`, `for`, `int` and `sizeof`. Each is a keyword
+only when it is a whole identifier, so `returnx`, `iffy`, `elsewhere`, `whilst`,
+`format`, `integer` and `sizeofx` are ordinary variable names.
 
 ## Variables
 
@@ -197,6 +199,22 @@ neighbour are one element apart:
 Locals are laid out at descending addresses in declaration order, so the one
 declared after `p`'s target is at `p - 1`. That is a property of the frame
 layout, not something C guarantees.
+
+## sizeof
+
+`sizeof e` is the size of `e`'s type. **Every type is 8 bytes here**, `int`
+included, so it always answers 8 for now. That changes when `char` arrives and
+storage stops being uniform.
+
+The operand is typed but never evaluated:
+
+    int main() { int x; x = 1; sizeof(x = 2); return x; }   // 1, not 2
+
+There is no `sizeof(int)` type-name form; the operand is always an expression.
+
+`sizeof` is folded into a constant by the typing pass rather than the parser,
+because the operand's type can depend on a function signature that appears
+later in the file.
 
 ## Stack discipline
 

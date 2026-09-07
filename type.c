@@ -170,6 +170,15 @@ void add_type(Node *node) {
         }
         node->ty = node->lhs->ty->ptr_to;
         return;
+        case ND_SIZEOF:
+        // Becomes the size of its operand's type. The operand is typed but
+        // never evaluated, which is why this happens here rather than in
+        // codegen: replacing the node drops the subtree.
+        node->kind = ND_NUM;
+        node->val = type_size(node->lhs->ty);
+        node->lhs = NULL;
+        node->ty = int_type();
+        return;
         case ND_FUNCALL: {
             Function *fn = find_function(node);
             // An undeclared callee is assumed to return int, which is what the
