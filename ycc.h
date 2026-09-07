@@ -24,11 +24,20 @@ struct Token {
     int len;
 };
 
-// Token currently being parsed.
+// Token currently being parsed, and the whole input it points into.
 extern Token *token;
+extern char *user_input;
 
 void init_token(char *p);
-bool at_eof();
+bool consume(char *op);
+void expect(char *op);
+int expect_number(void);
+bool at_eof(void);
+
+//
+// Error reporting
+//
+
 void error(char *fmt, ...);
 void error_at(char *loc, char *fmt, ...);
 
@@ -65,13 +74,13 @@ struct Node {
 // unary = ("+" | "-") unary | primary
 // primary = num | "(" expr ")"
 
-Node *expr();
-Node *equality();
-Node *relational();
-Node *add();
-Node *mul();
-Node *unary();
-Node *primary();
+Node *expr(void);
+Node *equality(void);
+Node *relational(void);
+Node *add(void);
+Node *mul(void);
+Node *unary(void);
+Node *primary(void);
 
 //
 // Code Generator

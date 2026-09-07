@@ -11,10 +11,16 @@ stdout.
 
     make
 
-Builds with `-Wall -Wextra -Wswitch-enum`. `-Wswitch-enum` is deliberate: the
+Builds with `-Wall -Wextra -Wswitch-enum -Wstrict-prototypes
+-Wmissing-prototypes`.
+`-Wswitch-enum` is deliberate: the
 code generator's switch has a `default:` that rejects unknown node kinds at
 runtime, and that suppresses plain `-Wswitch`, so a node kind added without a
-codegen case would otherwise go unreported at compile time.
+codegen case would otherwise go unreported at compile time. `-Wstrict-prototypes`
+keeps `f()` from creeping back in where `f(void)` is meant -- in C the former
+declares unspecified parameters rather than none. `-Wmissing-prototypes` catches
+a function that is externally visible but has no declaration, which usually means
+it should have been `static`.
 
 ## Usage
 
@@ -39,6 +45,16 @@ and `-5` with status 251.
 
 Integers are the only type. Comparisons yield 1 or 0 and chain to the left, so
 `1<2<3` is `(1<2)<3`.
+
+## Source layout
+
+| File | Contents |
+| --- | --- |
+| `ycc.h` | Token and node types, and every prototype |
+| `tokenize.c` | The tokenizer, and the `consume`/`expect` helpers the parser reads tokens through |
+| `parse.c` | Recursive descent over the grammar above, building the AST |
+| `codegen.c` | Walks the AST and emits assembly |
+| `main.c` | Entry point, and error reporting |
 
 ## Test
 
