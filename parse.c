@@ -85,7 +85,15 @@ void program(void) {
 }
 
 Node *stmt(void) {
-    Node *node = expr();
+    Node *node;
+
+    if (consume_kind(TK_RETURN)) {
+        node = new_node(ND_RETURN);
+        node->lhs = expr();
+    } else {
+        node = expr();
+    }
+
     expect(";");
     return node;
 }

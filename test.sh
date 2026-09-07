@@ -148,6 +148,19 @@ assert 39 'v0=0;v1=1;v2=2;v3=3;v4=4;v5=5;v6=6;v7=7;v8=8;v9=9;v10=10;v11=11;v12=1
 assert 7 'a=b=7; b;'
 assert 3 'a=(b=3); a;'
 
+# return jumps to the single epilogue; later statements are dead.
+assert 5 'return 5;'
+assert 3 'a=3; return a; return 9;'
+assert 1 'return 1; return 2;'
+assert 5 'a=1; return a+4;'
+assert 14 'a=3; b=5*6-8; return a+b/2;'
+assert 1 'a=1; return a; a=2;'
+# A keyword is only a keyword when it is the whole identifier.
+assert 4 'returnx=4; returnx;'
+assert 7 'return_=7; return_;'
+assert 6 'returns=2; return returns*3;'
+assert 8 'returnvalue=8; return returnvalue;'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail '1+;'
 assert_fail '(1;'
@@ -164,5 +177,8 @@ assert_fail '1=2;'
 assert_fail 'a+b=3;'
 assert_fail 'a=;'
 assert_fail '=1;'
+assert_fail 'return;'
+assert_fail 'return'
+assert_fail 'return return 1;'
 
 echo "OK ($pass assertions)"

@@ -30,7 +30,8 @@ int main(int argc, char *argv[]) {
         printf("    pop rax\n");
     }
 
-    // Epilogue.
+    // Epilogue. Every return jumps here rather than carrying its own copy.
+    printf("%s:\n", RETURN_LABEL);
     printf("    mov rsp, rbp\n");
     printf("    pop rbp\n");
     printf("    ret\n");

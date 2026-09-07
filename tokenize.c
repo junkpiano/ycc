@@ -56,6 +56,16 @@ Token *consume_ident(void) {
     return tok;
 }
 
+// Consume the current token if it is the given keyword kind.
+bool consume_kind(TokenKind kind) {
+    if (token->kind != kind) {
+        return false;
+    }
+
+    token = token->next;
+    return true;
+}
+
 bool at_eof(void) {
     return token->kind == TK_EOF;
 }
@@ -108,7 +118,15 @@ static Token *tokenize(char *p) {
             do {
                 p++;
             } while (is_ident_tail(*p));
-            cur = new_token(TK_IDENT, cur, q, p - q);
+
+            int len = p - q;
+            // A keyword is only a keyword when it is the whole identifier,
+            // so "returnx" stays one identifier.
+            if (len == 6 && memcmp(q, "return", 6) == 0) {
+                cur = new_token(TK_RETURN, cur, q, len);
+            } else {
+                cur = new_token(TK_IDENT, cur, q, len);
+            }
             continue;
         }
 

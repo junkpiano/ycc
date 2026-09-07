@@ -41,6 +41,13 @@ void gen(Node *node) {
         printf("    mov rax, [rax]\n");
         printf("    push rax\n");
         return;
+        case ND_RETURN:
+        gen(node->lhs);
+        printf("    pop rax\n");
+        // Jump to the single epilogue rather than duplicating it here.
+        printf("    jmp %s\n", RETURN_LABEL);
+        // The value is not pushed: control never reaches the statement pop.
+        return;
         case ND_ASSIGN:
         gen_lval(node->lhs);
         gen(node->rhs);

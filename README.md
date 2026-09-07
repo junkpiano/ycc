@@ -24,9 +24,10 @@ it should have been `static`.
 ## Usage
 
 A program is a sequence of statements, each an expression followed by `;`.
-Every statement is evaluated and the program takes the value of the last one.
-Running the result exits with that value, so only its low 8 bits survive: `300`
-exits with status 44, and `-5` with status 251.
+Statements are evaluated in order and the program takes the value of the last
+one reached -- or of the first `return` taken, which stops there. Running the
+result exits with that value, so only its low 8 bits survive: `300` exits with
+status 44, and `-5` with status 251.
 
     $ ./ycc '1 + 2; 5 * (9 - 6);' > temp.s
     $ cc -o temp temp.s
@@ -39,6 +40,7 @@ At least one statement is required; empty input is rejected.
 
     program    = stmt+
     stmt       = expr ";"
+               | "return" expr ";"
     expr       = assign
     assign     = equality ("=" assign)?
     equality   = relational ("==" relational | "!=" relational)*
@@ -50,6 +52,13 @@ At least one statement is required; empty input is rejected.
 
 At most 100 statements. Integers are the only type. Comparisons yield 1 or 0 and
 chain to the left, so `1<2<3` is `(1<2)<3`.
+
+`return` ends the program with the given value. Statements after it are still
+compiled but never run. Every `return` jumps to a single shared epilogue rather
+than carrying its own copy.
+
+`return` is a keyword only when it is a whole identifier, so `returnx` is an
+ordinary variable name.
 
 ## Variables
 

@@ -11,6 +11,7 @@
 typedef enum {
     TK_RESERVED,
     TK_IDENT,
+    TK_RETURN,
     TK_NUM,
     TK_EOF,
 } TokenKind;
@@ -34,6 +35,7 @@ bool consume(char *op);
 void expect(char *op);
 int expect_number(void);
 Token *consume_ident(void);
+bool consume_kind(TokenKind kind);
 bool at_eof(void);
 
 //
@@ -74,6 +76,7 @@ typedef enum {
     ND_LE,  // <=
     ND_ASSIGN,
     ND_LVAR,
+    ND_RETURN,
     ND_NUM,
 } NodeKind;
 
@@ -89,6 +92,7 @@ struct Node {
 
 // program = stmt+
 // stmt = expr ";"
+//      | "return" expr ";"
 // expr = assign
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
@@ -117,5 +121,8 @@ Node *primary(void);
 // Code Generator
 //
 void gen(Node *node);
+
+// Label the epilogue jumps to.
+#define RETURN_LABEL ".L.return"
 
 #endif
