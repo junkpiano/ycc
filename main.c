@@ -14,23 +14,10 @@ int main(int argc, char *argv[]) {
     program();
 
     printf(".intel_syntax noprefix\n");
-    printf(".globl main\n");
-    printf("main:\n");
 
-    // Prologue. The frame size is only known once the whole program is
-    // parsed, which is why program() runs before any of this is emitted.
-    printf("    push rbp\n");
-    printf("    mov rbp, rsp\n");
-    printf("    sub rsp, %d\n", frame_size());
-
-    // The program is one block, which leaves its last statement's value.
-    gen_program(program_body);
-
-    // Epilogue. Every return jumps here rather than carrying its own copy.
-    printf("%s:\n", RETURN_LABEL);
-    printf("    mov rsp, rbp\n");
-    printf("    pop rbp\n");
-    printf("    ret\n");
+    // main is no longer special here: it is just the function the linker
+    // happens to start at.
+    gen_program();
 
     return 0;
 }

@@ -7,6 +7,9 @@
 // Distinguishes the labels of one control-flow construct from another.
 static int label_seq = 0;
 
+// The function being emitted, for its return label.
+static Function *current_fn;
+
 // Number of 8-byte values pushed on the path that falls through to here.
 // Every gen() leaves exactly one, so this is known at compile time and needs no
 // runtime test to decide whether a call site must be padded.
@@ -207,7 +210,7 @@ void gen(Node *node) {
         gen_one(node->lhs);
         pop("rax");
         // Jump to the single epilogue rather than duplicating it here.
-        printf("    jmp %s\n", RETURN_LABEL);
+        printf("    jmp .L.return.%.*s\n", current_fn->name_len, current_fn->name);
         // Nothing is pushed, because control never falls through to the
         // statement pop. Count one anyway so the caller's accounting matches
         // the unreachable instructions that follow.
@@ -270,15 +273,47 @@ void gen(Node *node) {
     push("rax");
 }
 
-// Emit the whole program, leaving its value in rax.
-void gen_program(Node *node) {
-    gen_one(node);
+static void gen_function(Function *fn) {
+    static char *argregs[MAX_ARGS] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
+    current_fn = fn;
+    depth = 0;
+
+    printf(".globl %.*s\n", fn->name_len, fn->name);
+    printf("%.*s:\n", fn->name_len, fn->name);
+
+    // Prologue. The frame size is known only now that the body is parsed.
+    printf("    push rbp\n");
+    printf("    mov rbp, rsp\n");
+    printf("    sub rsp, %d\n", fn->frame_size);
+
+    // Parameters are the first locals. fn->params is newest-first, so walk it
+    // backwards through the argument registers.
+    int i = fn->nparams - 1;
+    for (LVar *param = fn->params; param != NULL && i >= 0; param = param->next, i--) {
+        printf("    mov [rbp-%d], %s\n", param->offset, argregs[i]);
+    }
+
+    gen_one(fn->body);
     pop("rax");
 
     // gen_one() has already checked each individual site; this catches anything
     // left over, so a construct that pushes or pops the wrong number of times
     // shows up here rather than as a corrupted return address at runtime.
     if (depth != 0) {
-        error("codegen: stack depth is %d at end of program, expected 0", depth);
+        error("codegen: stack depth is %d at end of %.*s, expected 0",
+              depth, fn->name_len, fn->name);
+    }
+
+    // One epilogue per function, which every return in it jumps to.
+    printf(".L.return.%.*s:\n", fn->name_len, fn->name);
+    printf("    mov rsp, rbp\n");
+    printf("    pop rbp\n");
+    printf("    ret\n");
+}
+
+void gen_program(void) {
+    for (Function *fn = functions; fn != NULL; fn = fn->next) {
+        gen_function(fn);
     }
 }

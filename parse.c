@@ -37,7 +37,7 @@ static Node *new_num(int val) {
     return node;
 }
 
-Node *program_body;
+Function *functions;
 LVar *locals;
 
 // Find a local by name, or NULL. Linear scan is fine at this scale.
@@ -66,18 +66,76 @@ static LVar *new_lvar(Token *tok) {
 // Rounded up to 16 so that rsp is 16-byte aligned once the frame is reserved.
 // The System V ABI requires that at a call, and keeping the base aligned means
 // alignment then depends only on how many values are pushed.
-int frame_size(void) {
+static int frame_size(void) {
     int size = locals == NULL ? 0 : locals->offset;
     return (size + 15) / 16 * 16;
 }
 
-// The top level is an implicit block, so there is no fixed statement limit.
-void program(void) {
+// function = ident "(" (ident ("," ident)*)? ")" "{" stmt* "}"
+static Function *function(void) {
+    Token *name = consume_ident();
+    if (name == NULL) {
+        error_at(token->str, "expected a function name");
+    }
+
+    // Each function has its own locals, so the list starts empty. Parameters
+    // are simply the first ones declared.
+    locals = NULL;
+
+    Function *fn = calloc(1, sizeof(Function));
+    fn->name = name->str;
+    fn->name_len = name->len;
+
+    expect("(");
+    if (!consume(")")) {
+        for (;;) {
+            Token *param = consume_ident();
+            if (param == NULL) {
+                error_at(token->str, "expected a parameter name");
+            }
+            if (find_lvar(param) != NULL) {
+                error_at(param->str, "duplicate parameter");
+            }
+            new_lvar(param);
+            fn->nparams++;
+            if (!consume(",")) {
+                break;
+            }
+        }
+        expect(")");
+    }
+    if (fn->nparams > MAX_ARGS) {
+        error_at(name->str, "too many parameters (max %d)", MAX_ARGS);
+    }
+    // locals currently holds exactly the parameters, newest first.
+    fn->params = locals;
+
+    if (!consume("{")) {
+        error_at(token->str, "expected a function body");
+    }
     Node head = {0};
     Node *cur = &head;
+    while (!consume("}")) {
+        if (at_eof()) {
+            error_at(token->str, "unclosed function body");
+        }
+        cur->next = stmt();
+        cur = cur->next;
+    }
+    fn->body = new_node(ND_BLOCK);
+    fn->body->body = head.next;
+
+    // Only known now that the whole body has been parsed.
+    fn->frame_size = frame_size();
+    return fn;
+}
+
+void program(void) {
+    Function head = {0};
+    Function *cur = &head;
 
     while (!at_eof()) {
-        cur->next = stmt();
+        cur->next = function();
         cur = cur->next;
     }
 
@@ -85,8 +143,7 @@ void program(void) {
         error("empty program");
     }
 
-    program_body = new_node(ND_BLOCK);
-    program_body->body = head.next;
+    functions = head.next;
 }
 
 Node *stmt(void) {

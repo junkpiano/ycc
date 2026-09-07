@@ -66,8 +66,7 @@ struct LVar {
 // Locals of the function being parsed, most recently declared first.
 extern LVar *locals;
 
-// Bytes of stack the current function's locals need.
-int frame_size(void);
+
 
 typedef enum {
     ND_ADD,
@@ -119,7 +118,8 @@ struct Node {
     int offset; // ND_LVAR only: distance below rbp
 };
 
-// program = stmt+
+// program = function+
+// function = ident "(" (ident ("," ident)*)? ")" "{" stmt* "}"
 // stmt = "{" stmt* "}"
 //      | ";"
 //      | expr ";"
@@ -138,8 +138,21 @@ struct Node {
 //         | ident ("(" (expr ("," expr)*)? ")")?
 //         | "(" expr ")"
 
-// The whole program, as one implicit block.
-extern Node *program_body;
+// A parsed function definition.
+typedef struct Function Function;
+
+struct Function {
+    Function *next;
+    char *name;
+    int name_len;
+    Node *body;      // an ND_BLOCK
+    LVar *params;    // the first entries of locals, in declared order
+    int nparams;
+    int frame_size;  // a multiple of 16
+};
+
+// Every function in the program, in source order.
+extern Function *functions;
 
 void program(void);
 Node *stmt(void);
@@ -159,11 +172,10 @@ Node *primary(void);
 #define MAX_ARGS 6
 
 void gen(Node *node);
-void gen_program(Node *node);
+void gen_program(void);
 bool stack_misaligned(void);
 int stack_depth(void);
 
-// Label the epilogue jumps to.
-#define RETURN_LABEL ".L.return"
+
 
 #endif
