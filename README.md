@@ -41,8 +41,11 @@ At least one function is required; empty input is rejected.
 ## Supported grammar
 
     program    = function+
-    function   = ident "(" (ident ("," ident)*)? ")" "{" stmt* "}"
+    function   = declspec ident "(" (declspec ident ("," declspec ident)*)? ")"
+                 "{" stmt* "}"
+    declspec   = "int" "*"*
     stmt       = "{" stmt* "}"
+               | declspec ident ";"
                | ";"
                | expr ";"
                | "return" expr ";"
@@ -60,12 +63,12 @@ At least one function is required; empty input is rejected.
                | ident ("(" (expr ("," expr)*)? ")")?
                | "(" expr ")"
 
-Integers are the only type. Comparisons yield 1 or 0 and
+The types are `int` and pointers to it. Comparisons yield 1 or 0 and
 chain to the left, so `1<2<3` is `(1<2)<3`.
 
-`return` ends the program with the given value. Statements after it are still
-compiled but never run. Every `return` jumps to a single shared epilogue rather
-than carrying its own copy.
+`return` ends the enclosing function with the given value. Statements after it
+are still compiled but never run. Every `return` in a function jumps to that
+function's single epilogue rather than carrying its own copy.
 
 ## Control flow
 
@@ -73,6 +76,7 @@ than carrying its own copy.
 
 An `else` binds to the nearest unmatched `if`.
 
+    int i; int s;
     while (i < 10) i = i + 1;
     for (i = 0; i < 5; i = i + 1) s = s + i;
 
@@ -85,6 +89,7 @@ like `for (i = 0; i < 3; i = i + 1) ;` work.
 A block `{ ... }` groups statements and is itself a statement, so it can be a
 loop or conditional body:
 
+    int a; int i;
     for (i = 0; i < 3; i = i + 1) { a = a + i; a = a + 1; }
 
 Blocks do not introduce a scope -- a variable is visible throughout the function
@@ -99,43 +104,47 @@ is false and there is no `else`; for a loop and for the null
 statement it is 0; for a block it is its last statement's value, or 0 if it is
 empty.
 
-    $ ./ycc 'a=1; if (a) 7; else 8;' > temp.s   # 7
-    $ ./ycc 'if (0) 7;' > temp.s                # 0
+    $ ./ycc 'int main() { int a; a=1; if (a) 7; else 8; }' > temp.s   # 7
+    $ ./ycc 'int main() { if (0) 7; }' > temp.s                        # 0
 
 There is no `break` or `continue` yet.
 
 ## Keywords
 
-`return`, `if`, `else`, `while` and `for`. Each is a keyword only when it is a
-whole identifier, so `returnx`, `iffy`, `elsewhere`, `whilst` and `format` are
-ordinary variable names.
+`return`, `if`, `else`, `while`, `for` and `int`. Each is a keyword only when it
+is a whole identifier, so `returnx`, `iffy`, `elsewhere`, `whilst`, `format` and
+`integer` are ordinary variable names.
 
 ## Variables
 
-Names are `[A-Za-z_][A-Za-z0-9_]*` and are case sensitive, so `a` and `A` are
-different variables. Each name seen gets its own 8-byte slot in the function
-frame the first time it appears; there are no declarations, and no fixed limit
-on how many there can be. Locals are per function, so two functions each using
-`a` get separate slots. Parameters are simply the first locals. A local is not initialised -- reading one before
-assigning to it yields whatever is in that slot.
+Every variable must be declared before use, and the type is `int` or a pointer
+to one:
 
-Because a name is created on first use, a misspelling silently becomes a new
-variable rather than an error. Declarations arrive with the type work.
+    int x;
+    int *p;
+    int **pp;
+
+Names are `[A-Za-z_][A-Za-z0-9_]*` and are case sensitive, so `a` and `A` are
+different variables. Each declaration gets its own 8-byte slot in that
+function's frame. Locals are per function, so two functions each declaring `a`
+get separate slots. Parameters are simply the first locals.
+
+A local is not initialised -- reading one before assigning to it yields whatever
+is in that slot.
 
 Assignment is an expression, and is right associative, so `a = b = 3` assigns 3
 to both and evaluates to 3.
 
-    $ ./ycc 'a=3; b=5*6-8; a+b/2;' > temp.s
+    $ ./ycc 'int main() { int a; int b; a=3; b=5*6-8; return a+b/2; }' > temp.s
     $ cc -o temp temp.s
     $ ./temp; echo $?
     14
 
 ## Functions
 
-    add(a, b) { return a + b; }
+    int add(int a, int b) { return a + b; }
 
-There are no types yet, so a definition is just a name, parameter names, and a
-body. Up to six parameters. Each function has its own locals, its own frame and
+A definition gives a return type, a name, typed parameters and a body. Up to six parameters. Each function has its own locals, its own frame and
 its own epilogue label, so a name used in one function is unrelated to the same
 name in another. Recursion and mutual recursion both work.
 
@@ -169,26 +178,25 @@ calls into it.
 ## Pointers
 
 `&x` is the address of `x`, and `*p` reads through a pointer. A dereference is
-an lvalue, so `*p = 3` assigns through it, and addresses can be passed to
-functions:
+an lvalue, so `*p = 3` assigns through it, and addresses can be passed to and
+returned from functions:
 
-    setto(p, v) { *p = v; return 0; }
-    main() { x = 0; setto(&x, 4); return x; }
+    int setto(int *p, int v) { *p = v; return 0; }
+    int main() { int x; x = 0; setto(&x, 4); return x; }
 
-**Pointer arithmetic is not scaled.** `p + 1` advances one byte, not one
-element, because there are no types yet to say how big an element is.
+**Pointer arithmetic is scaled by the size of what the pointer points at**, so
+`p + 1` advances one element, not one byte. `p - q` between two pointers is a
+count of elements. Adding two pointers, or subtracting a pointer from an
+integer, is rejected, as is dereferencing something that is not a pointer.
 
-Locals are 8 bytes apart and are laid out at successively lower addresses in
-declaration order, so the local declared immediately *after* the target of `p`
-sits at `p - 8`:
+Every type is 8 bytes for now, `int` included. That is why a local and its
+neighbour are one element apart:
 
-    main() { a = 1; b = 2; p = &a; return *(p - 8); }   // 2, which is b
+    int main() { int a; int b; int *p; a=1; b=2; p=&a; return *(p-1); }   // 2
 
-This depends on the frame layout and is temporary -- the type work fixes the
-scaling. Nothing here should be relied on.
-
-For the same reason `*3` compiles — it dereferences address 3 and faults at run
-time. There is no type to reject it by yet.
+Locals are laid out at descending addresses in declaration order, so the one
+declared after `p`'s target is at `p - 1`. That is a property of the frame
+layout, not something C guarantees.
 
 ## Stack discipline
 
@@ -225,6 +233,7 @@ rather than decorative.
 | `ycc.h` | Token and node types, and every prototype |
 | `tokenize.c` | The tokenizer, and the `consume`/`expect` helpers the parser reads tokens through |
 | `parse.c` | Recursive descent over the grammar above, building the AST |
+| `type.c` | The type representation, and the pass that types every node |
 | `codegen.c` | Walks the AST and emits assembly |
 | `main.c` | Entry point, and error reporting |
 | `tests/helper.c` | External callees the tests link against, including the alignment probe |

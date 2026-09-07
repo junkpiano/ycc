@@ -89,6 +89,7 @@ static const struct {
     {"else", TK_ELSE},
     {"while", TK_WHILE},
     {"for", TK_FOR},
+    {"int", TK_INT},
 };
 
 // The token kind for an identifier of the given length: a keyword kind if it

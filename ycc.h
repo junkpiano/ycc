@@ -16,6 +16,7 @@ typedef enum {
     TK_ELSE,
     TK_WHILE,
     TK_FOR,
+    TK_INT,
     TK_NUM,
     TK_EOF,
 } TokenKind;
@@ -50,6 +51,27 @@ void error(char *fmt, ...);
 void error_at(char *loc, char *fmt, ...);
 
 //
+// Types
+//
+
+typedef enum {
+    TY_INT,
+    TY_PTR,
+} TypeKind;
+
+typedef struct Type Type;
+
+struct Type {
+    TypeKind kind;
+    Type *ptr_to; // TY_PTR only
+};
+
+Type *int_type(void);
+Type *pointer_to(Type *base);
+int type_size(Type *ty);
+bool is_pointer(Type *ty);
+
+//
 // Parser
 //
 
@@ -61,6 +83,7 @@ struct LVar {
     char *name; // not NUL-terminated; points into the input
     int len;
     int offset; // distance below rbp
+    Type *ty;
 };
 
 // Locals of the function being parsed, most recently declared first.
@@ -110,6 +133,8 @@ struct Node {
     Node *body;
     Node *next;
 
+    Type *ty; // set by add_type()
+
     // ND_FUNCALL
     char *funcname;
     int funcname_len;
@@ -121,8 +146,11 @@ struct Node {
 };
 
 // program = function+
-// function = ident "(" (ident ("," ident)*)? ")" "{" stmt* "}"
+// function = declspec ident "(" (declspec ident ("," declspec ident)*)? ")"
+//            "{" stmt* "}"
+// declspec = "int" "*"*
 // stmt = "{" stmt* "}"
+//      | declspec ident ";"
 //      | ";"
 //      | expr ";"
 //      | "return" expr ";"
@@ -148,6 +176,7 @@ struct Function {
     char *name;
     int name_len;
     Node *body;      // an ND_BLOCK
+    Type *ret_ty;
     LVar *params;    // the first entries of locals, in declared order
     int nparams;
     int frame_size;  // a multiple of 16
@@ -157,6 +186,7 @@ struct Function {
 extern Function *functions;
 
 void program(void);
+void add_type(Node *node);
 Node *stmt(void);
 Node *expr(void);
 Node *assign(void);

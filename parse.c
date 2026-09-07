@@ -52,14 +52,29 @@ static LVar *find_lvar(Token *tok) {
 }
 
 // Append a local, giving it the next slot below the last one.
-static LVar *new_lvar(Token *tok) {
+static LVar *new_lvar(Token *tok, Type *ty) {
     LVar *var = calloc(1, sizeof(LVar));
     var->next = locals;
     var->name = tok->str;
     var->len = tok->len;
-    var->offset = (locals == NULL ? 0 : locals->offset) + 8;
+    var->ty = ty;
+    var->offset = (locals == NULL ? 0 : locals->offset) + type_size(ty);
     locals = var;
     return var;
+}
+
+// "int" "*"*
+static Type *declspec(void) {
+    if (!consume_kind(TK_INT)) {
+        return NULL;
+    }
+
+    Type *ty = int_type();
+    while (consume("*")) {
+        ty = pointer_to(ty);
+    }
+
+    return ty;
 }
 
 // Only known once the whole function has been parsed.
@@ -73,6 +88,11 @@ static int frame_size(void) {
 
 // function = ident "(" (ident ("," ident)*)? ")" "{" stmt* "}"
 static Function *function(void) {
+    Type *ret_ty = declspec();
+    if (ret_ty == NULL) {
+        error_at(token->str, "expected a type");
+    }
+
     Token *name = consume_ident();
     if (name == NULL) {
         error_at(token->str, "expected a function name");
@@ -85,10 +105,15 @@ static Function *function(void) {
     Function *fn = calloc(1, sizeof(Function));
     fn->name = name->str;
     fn->name_len = name->len;
+    fn->ret_ty = ret_ty;
 
     expect("(");
     if (!consume(")")) {
         for (;;) {
+            Type *ty = declspec();
+            if (ty == NULL) {
+                error_at(token->str, "expected a parameter type");
+            }
             Token *param = consume_ident();
             if (param == NULL) {
                 error_at(token->str, "expected a parameter name");
@@ -96,7 +121,7 @@ static Function *function(void) {
             if (find_lvar(param) != NULL) {
                 error_at(param->str, "duplicate parameter");
             }
-            new_lvar(param);
+            new_lvar(param, ty);
             fn->nparams++;
             if (!consume(",")) {
                 break;
@@ -151,6 +176,22 @@ Node *stmt(void) {
 
     // The null statement, as in "while (...) ;".
     if (consume(";")) {
+        return new_node(ND_NOP);
+    }
+
+    // A declaration: "int x;" or "int *p;". It reserves a slot and produces
+    // no code, but is still a statement, so it leaves a value like any other.
+    Type *ty = declspec();
+    if (ty != NULL) {
+        Token *name = consume_ident();
+        if (name == NULL) {
+            error_at(token->str, "expected a variable name");
+        }
+        if (find_lvar(name) != NULL) {
+            error_at(name->str, "redeclared variable");
+        }
+        new_lvar(name, ty);
+        expect(";");
         return new_node(ND_NOP);
     }
 
@@ -359,12 +400,13 @@ Node *primary(void) {
             return node;
         }
 
-        Node *node = new_node(ND_LVAR);
         LVar *var = find_lvar(tok);
         if (var == NULL) {
-            var = new_lvar(tok);
+            error_at(tok->str, "undeclared variable");
         }
+        Node *node = new_node(ND_LVAR);
         node->offset = var->offset;
+        node->ty = var->ty;
         return node;
     }
 

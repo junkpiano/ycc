@@ -352,6 +352,12 @@ static void gen_function(Function *fn) {
 }
 
 void gen_program(void) {
+    // Type the whole program first: a call's type can depend on a definition
+    // that appears later in the file.
+    for (Function *fn = functions; fn != NULL; fn = fn->next) {
+        add_type(fn->body);
+    }
+
     for (Function *fn = functions; fn != NULL; fn = fn->next) {
         gen_function(fn);
     }
