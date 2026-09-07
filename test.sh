@@ -351,6 +351,31 @@ assert 5 'int f(int a) { return 0; } int main() { int x; x=5; sizeof(f(x=9)); re
 assert 8 'int main() { int x; return sizeof(later(&x)); } int *later(int *p) { return p; }'
 assert 8 'int *f(int *p) { return p; } int main() { int x; return sizeof(f(&x)); }'
 
+# Arrays. a[i] is defined as *(a + i), so the pointer scaling does the work.
+assert 3 'int main() { int a[2]; *a=1; *(a+1)=2; return *a + *(a+1); }'
+assert 6 'int main() { int a[3]; a[0]=1; a[1]=2; a[2]=3; return a[0]+a[1]+a[2]; }'
+assert 6 'int main() { int a[3]; int i; int s; for (i=0;i<3;i=i+1) a[i]=i+1; s=0; for (i=0;i<3;i=i+1) s=s+a[i]; return s; }'
+assert 5 'int main() { int a[2]; a[0]=5; a[1]=6; return a[0]; }'
+assert 6 'int main() { int a[2]; a[0]=5; a[1]=6; return a[1]; }'
+# Because it is just *(a+i), i[a] works too.
+assert 5 'int main() { int a[2]; a[0]=5; return 0[a]; }'
+assert 6 'int main() { int a[2]; a[1]=6; return 1[a]; }'
+# An array decays to a pointer to its first element, except under sizeof and &.
+assert 80 'int main() { int a[10]; return sizeof(a); }'
+assert 8 'int main() { int a[10]; int *p; p=a; return sizeof(p); }'
+assert 8 'int main() { int a[2]; return sizeof(&a); }'
+assert 9 'int main() { int a[3]; int *p; a[1]=9; p=a; return p[1]; }'
+# Assigning through a decayed pointer is fine; only the array itself is not
+# a modifiable lvalue.
+assert 5 'int main() { int a[2]; int *p; p=a; p[0]=5; return a[0]; }'
+assert 9 'int set(int *p, int v) { *p = v; return 0; } int main() { int a[2]; set(a, 4); set(a+1, 5); return a[0]+a[1]; }'
+# Multi-dimensional arrays nest outside in, so int a[2][3] is 2 arrays of 3.
+assert 48 'int main() { int a[2][3]; return sizeof(a); }'
+assert 24 'int main() { int a[2][3]; return sizeof(a[0]); }'
+assert 8 'int main() { int a[2][3]; return sizeof(a[0][0]); }'
+assert 7 'int main() { int a[2][3]; a[1][2]=7; return a[1][2]; }'
+assert 5 'int main() { int a[2][3]; int i; int j; for (i=0;i<2;i=i+1) for (j=0;j<3;j=j+1) a[i][j]=i*3+j; return a[1][2]; }'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail 'int main() { 1+; }'
 assert_fail 'int main() { (1; }'
@@ -420,6 +445,17 @@ assert_fail 'int main() { return undeclared; }'
 assert_fail 'int main() { return sizeof; }'
 assert_fail 'int main() { return sizeof(); }'
 assert_fail 'int main() { int sizeof; return 1; }'
+assert_fail 'int main() { int a[0]; return 1; }'
+assert_fail 'int main() { int a[]; return 1; }'
+assert_fail 'int main() { int a[2; return 1; }'
+assert_fail 'int main() { int a[2]; return a[1; }'
+# An array is an lvalue but not a modifiable one.
+assert_fail 'int main() { int a[2]; a=3; return a[0]; }'
+assert_fail 'int main() { int a[2]; int b[2]; a=b; return 1; }'
+assert_fail 'int main() { int a[2][3]; a[0]=1; return 1; }'
+# A length whose total size overflows an int is rejected, not wrapped.
+assert_fail 'int main() { int a[2147483647]; return 1; }'
+assert_fail 'int main() { int a[2][2147483647]; return 1; }'
 
 rm -f "$HELPER"
 echo "OK ($pass assertions)"

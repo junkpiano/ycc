@@ -58,17 +58,23 @@ void error_at(char *loc, char *fmt, ...);
 typedef enum {
     TY_INT,
     TY_PTR,
+    TY_ARRAY,
 } TypeKind;
 
 typedef struct Type Type;
 
 struct Type {
     TypeKind kind;
-    Type *ptr_to; // TY_PTR only
+    Type *ptr_to;   // TY_PTR and TY_ARRAY: what it points at or holds
+    int array_len;  // TY_ARRAY only
 };
 
 Type *int_type(void);
 Type *pointer_to(Type *base);
+Type *array_of(Type *base, int len);
+bool is_array(Type *ty);
+// The type an array or pointer yields when used as a value.
+Type *decayed(Type *ty);
 int type_size(Type *ty);
 bool is_pointer(Type *ty);
 
@@ -151,6 +157,7 @@ struct Node {
 // function = declspec ident "(" (declspec ident ("," declspec ident)*)? ")"
 //            "{" stmt* "}"
 // declspec = "int" "*"*
+// declarator = ident ("[" num "]")*
 // stmt = "{" stmt* "}"
 //      | declspec ident ";"
 //      | ";"
@@ -168,6 +175,7 @@ struct Node {
 // unary = "sizeof" unary
 //       | ("+" | "-" | "*" | "&") unary
 //       | primary
+// postfix = primary ("[" expr "]")*
 // primary = num
 //         | ident ("(" (expr ("," expr)*)? ")")?
 //         | "(" expr ")"
@@ -200,6 +208,7 @@ Node *add(void);
 Node *mul(void);
 Node *unary(void);
 Node *primary(void);
+Node *postfix(void);
 
 //
 // Code Generator

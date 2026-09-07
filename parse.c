@@ -63,6 +63,37 @@ static LVar *new_lvar(Token *tok, Type *ty) {
     return var;
 }
 
+// ident ("[" num "]")*
+//
+// The suffixes read left to right but nest outside in, so "int a[2][3]" is an
+// array of 2 arrays of 3 ints. Collect the lengths, then apply them backwards.
+static Type *declarator(Type *ty, Token **name) {
+    *name = consume_ident();
+    if (*name == NULL) {
+        error_at(token->str, "expected a variable name");
+    }
+
+    int lens[8];
+    int ndims = 0;
+    while (consume("[")) {
+        if (ndims == 8) {
+            error_at(token->str, "too many array dimensions");
+        }
+        int len = expect_number();
+        if (len <= 0) {
+            error_at(token->str, "array length must be positive");
+        }
+        lens[ndims++] = len;
+        expect("]");
+    }
+
+    for (int i = ndims - 1; i >= 0; i--) {
+        ty = array_of(ty, lens[i]);
+    }
+
+    return ty;
+}
+
 // "int" "*"*
 static Type *declspec(void) {
     if (!consume_kind(TK_INT)) {
@@ -183,10 +214,8 @@ Node *stmt(void) {
     // no code, but is still a statement, so it leaves a value like any other.
     Type *ty = declspec();
     if (ty != NULL) {
-        Token *name = consume_ident();
-        if (name == NULL) {
-            error_at(token->str, "expected a variable name");
-        }
+        Token *name;
+        ty = declarator(ty, &name);
         if (find_lvar(name) != NULL) {
             error_at(name->str, "redeclared variable");
         }
@@ -369,7 +398,7 @@ Node *unary(void) {
         return node;
     }
 
-    return primary();
+    return postfix();
 }
 
 Node *primary(void) {
@@ -418,4 +447,21 @@ Node *primary(void) {
     }
 
     return new_num(expect_number());
+}
+
+// Subscripting is defined as *(a + i), so the scaling in add_type() does the
+// work and i[a] falls out for free.
+Node *postfix(void) {
+    Node *node = primary();
+
+    while (consume("[")) {
+        Node *index = expr();
+        expect("]");
+
+        Node *sum = new_binary(ND_ADD, node, index);
+        node = new_node(ND_DEREF);
+        node->lhs = sum;
+    }
+
+    return node;
 }

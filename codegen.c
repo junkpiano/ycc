@@ -111,9 +111,14 @@ void gen(Node *node) {
         return;
         case ND_LVAR:
         gen_lval(node);
-        pop("rax");
-        printf("    mov rax, [rax]\n");
-        push("rax");
+        // An array used as a value is a pointer to its first element, so the
+        // address it already has on the stack is the value. Anything else
+        // loads through that address.
+        if (!is_array(node->ty)) {
+            pop("rax");
+            printf("    mov rax, [rax]\n");
+            push("rax");
+        }
         return;
         case ND_IF: {
             // Every statement leaves exactly one value for the statement-level
@@ -195,9 +200,12 @@ void gen(Node *node) {
         return;
         case ND_DEREF:
         gen_one(node->lhs);
-        pop("rax");
-        printf("    mov rax, [rax]\n");
-        push("rax");
+        // Same rule: dereferencing to an array yields its address.
+        if (!is_array(node->ty)) {
+            pop("rax");
+            printf("    mov rax, [rax]\n");
+            push("rax");
+        }
         return;
         case ND_SIZEOF:
         // add_type() rewrites these into constants, so reaching codegen means

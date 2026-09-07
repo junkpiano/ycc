@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -8,7 +9,7 @@
 //
 
 Type *int_type(void) {
-    static Type ty = {TY_INT, NULL};
+    static Type ty = {TY_INT, NULL, 0};
     return &ty;
 }
 
@@ -19,15 +20,48 @@ Type *pointer_to(Type *base) {
     return ty;
 }
 
+Type *array_of(Type *base, int len) {
+    Type *ty = calloc(1, sizeof(Type));
+    ty->kind = TY_ARRAY;
+    ty->ptr_to = base;
+    ty->array_len = len;
+    return ty;
+}
+
 int type_size(Type *ty) {
-    // Everything occupies 8 bytes for now, int included. Narrower storage
-    // arrives with char, which is where that assumption has to be revisited.
-    (void)ty;
+    if (ty != NULL && ty->kind == TY_ARRAY) {
+        // Computed wide: the product of a valid element size and a valid
+        // length can still overflow an int.
+        long size = (long)type_size(ty->ptr_to) * ty->array_len;
+        if (size > INT_MAX) {
+            error("array is too large");
+        }
+        return (int)size;
+    }
+
+    // Everything else occupies 8 bytes, int included. Narrower storage arrives
+    // with char, which is where that assumption has to be revisited.
     return 8;
 }
 
+bool is_array(Type *ty) {
+    return ty != NULL && ty->kind == TY_ARRAY;
+}
+
+// An array used as a value becomes a pointer to its first element. Every
+// context except sizeof and & goes through this.
+Type *decayed(Type *ty) {
+    if (is_array(ty)) {
+        return pointer_to(ty->ptr_to);
+    }
+
+    return ty;
+}
+
+// True for anything that can be dereferenced or offset: a pointer, or an array
+// that decays to one.
 bool is_pointer(Type *ty) {
-    return ty != NULL && ty->kind == TY_PTR;
+    return ty != NULL && (ty->kind == TY_PTR || ty->kind == TY_ARRAY);
 }
 
 // Look up a function defined in this program by the name a call uses.
@@ -80,6 +114,8 @@ static void scale_add(Node *node) {
 
     if (is_pointer(node->lhs->ty)) {
         node->rhs = scale_by(node->rhs, type_size(node->lhs->ty->ptr_to));
+        node->ty = decayed(node->lhs->ty);
+        return;
     }
 
     node->ty = node->lhs->ty;
@@ -106,6 +142,8 @@ static void scale_sub(Node *node) {
 
     if (is_pointer(node->lhs->ty)) {
         node->rhs = scale_by(node->rhs, type_size(node->lhs->ty->ptr_to));
+        node->ty = decayed(node->lhs->ty);
+        return;
     }
 
     node->ty = node->lhs->ty;
@@ -143,7 +181,14 @@ void add_type(Node *node) {
         return;
         case ND_MUL:
         case ND_DIV:
+        node->ty = node->lhs->ty;
+        return;
         case ND_ASSIGN:
+        // An array is an lvalue but not a modifiable one. Without this, a=3
+        // writes into a[0] and a=b stores b's decayed pointer there.
+        if (is_array(node->lhs->ty)) {
+            error("cannot assign to an array");
+        }
         node->ty = node->lhs->ty;
         return;
         case ND_EQ:

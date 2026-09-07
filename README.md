@@ -44,8 +44,9 @@ At least one function is required; empty input is rejected.
     function   = declspec ident "(" (declspec ident ("," declspec ident)*)? ")"
                  "{" stmt* "}"
     declspec   = "int" "*"*
+    declarator = ident ("[" num "]")*
     stmt       = "{" stmt* "}"
-               | declspec ident ";"
+               | declspec declarator ";"
                | ";"
                | expr ";"
                | "return" expr ";"
@@ -60,7 +61,8 @@ At least one function is required; empty input is rejected.
     mul        = unary ("*" unary | "/" unary)*
     unary      = "sizeof" unary
                | ("+" | "-" | "*" | "&") unary
-               | primary
+               | postfix
+    postfix    = primary ("[" expr "]")*
     primary    = num
                | ident ("(" (expr ("," expr)*)? ")")?
                | "(" expr ")"
@@ -125,6 +127,8 @@ to one:
     int x;
     int *p;
     int **pp;
+    int a[10];
+    int grid[2][3];
 
 Names are `[A-Za-z_][A-Za-z0-9_]*` and are case sensitive, so `a` and `A` are
 different variables. Each declaration gets its own 8-byte slot in that
@@ -191,7 +195,7 @@ returned from functions:
 count of elements. Adding two pointers, or subtracting a pointer from an
 integer, is rejected, as is dereferencing something that is not a pointer.
 
-Every type is 8 bytes for now, `int` included. That is why a local and its
+`int` and every pointer are 8 bytes for now, which is why a local and its
 neighbour are one element apart:
 
     int main() { int a; int b; int *p; a=1; b=2; p=&a; return *(p-1); }   // 2
@@ -200,11 +204,38 @@ Locals are laid out at descending addresses in declaration order, so the one
 declared after `p`'s target is at `p - 1`. That is a property of the frame
 layout, not something C guarantees.
 
+## Arrays
+
+    int a[10];
+    int grid[2][3];
+
+The dimensions read left to right but nest outside in, so `int a[2][3]` is 2
+arrays of 3 ints. A length must be a positive literal.
+
+`a[i]` is *defined* as `*(a + i)`, so the pointer scaling does all the work --
+which is also why `0[a]` is valid.
+
+**An array used as a value decays to a pointer to its first element**, in every
+context except `sizeof` and `&`:
+
+    int main() { int a[10]; return sizeof(a); }          // 80, no decay
+    int main() { int a[10]; int *p; p = a; return sizeof(p); }   // 8, decayed
+
+Getting decay wrong makes everything else look broken, so it is asserted both
+ways, including `sizeof(a[0])` on a 2-D array, which is 24.
+
+An array is an lvalue but **not a modifiable one**: `a = b` is rejected. A
+pointer it decayed into is assignable as usual, so `p = a; p[0] = 5;` works.
+
+A length must be a positive literal whose total size fits in an `int`;
+`int a[2147483647]` is rejected rather than wrapping.
+
 ## sizeof
 
-`sizeof e` is the size of `e`'s type. **Every type is 8 bytes here**, `int`
-included, so it always answers 8 for now. That changes when `char` arrives and
-storage stops being uniform.
+`sizeof e` is the size of `e`'s type. `int` and every pointer are 8 bytes, so
+those always answer 8 for now; that changes when `char` arrives and storage stops
+being uniform. An array is the size of all its elements, so `sizeof` is the one
+place besides `&` where an array does not decay.
 
 The operand is typed but never evaluated:
 
