@@ -66,6 +66,8 @@ struct Node {
     int val;
 };
 
+// program = stmt+
+// stmt = expr ";"
 // expr = equality
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
@@ -74,6 +76,12 @@ struct Node {
 // unary = ("+" | "-") unary | primary
 // primary = num | "(" expr ")"
 
+// Parsed statements, terminated by a NULL entry.
+#define MAX_STATEMENTS 100
+extern Node *code[MAX_STATEMENTS + 1];
+
+void program(void);
+Node *stmt(void);
 Node *expr(void);
 Node *equality(void);
 Node *relational(void);

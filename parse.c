@@ -36,6 +36,31 @@ static Node *new_num(int val) {
     return node;
 }
 
+Node *code[MAX_STATEMENTS + 1];
+
+void program(void) {
+    int i = 0;
+
+    while (!at_eof()) {
+        if (i == MAX_STATEMENTS) {
+            error_at(token->str, "too many statements (max %d)", MAX_STATEMENTS);
+        }
+        code[i++] = stmt();
+    }
+
+    if (i == 0) {
+        error("empty program");
+    }
+
+    code[i] = NULL;
+}
+
+Node *stmt(void) {
+    Node *node = expr();
+    expect(";");
+    return node;
+}
+
 Node *expr(void) {
     return equality();
 }

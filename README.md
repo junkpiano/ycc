@@ -3,9 +3,8 @@ y(usuke) C compiler
 
 *A tiny C compiler*
 
-A small C compiler for x86-64, written for study. It reads an expression as a
-single command line argument and writes GNU assembler source (Intel syntax) to
-stdout.
+A small C compiler for x86-64, written for study. It reads a program as a single
+command line argument and writes GNU assembler source (Intel syntax) to stdout.
 
 ## Build
 
@@ -24,17 +23,22 @@ it should have been `static`.
 
 ## Usage
 
-`ycc` emits assembly for one expression. Running the result exits with that
-expression's value, so only its low 8 bits survive: `300` exits with status 44,
-and `-5` with status 251.
+A program is a sequence of statements, each an expression followed by `;`.
+Every statement is evaluated and the program takes the value of the last one.
+Running the result exits with that value, so only its low 8 bits survive: `300`
+exits with status 44, and `-5` with status 251.
 
-    $ ./ycc '5 * (9 - 6)' > temp.s
+    $ ./ycc '1 + 2; 5 * (9 - 6);' > temp.s
     $ cc -o temp temp.s
     $ ./temp; echo $?
     15
 
+At least one statement is required; empty input is rejected.
+
 ## Supported grammar
 
+    program    = stmt+
+    stmt       = expr ";"
     expr       = equality
     equality   = relational ("==" relational | "!=" relational)*
     relational = add ("<" add | "<=" add | ">" add | ">=" add)*
@@ -43,7 +47,7 @@ and `-5` with status 251.
     unary      = ("+" | "-") unary | primary
     primary    = num | "(" expr ")"
 
-Integers are the only type. Comparisons yield 1 or 0 and chain to the left, so
+At most 100 statements. Integers are the only type. Comparisons yield 1 or 0 and chain to the left, so
 `1<2<3` is `(1<2)<3`.
 
 ## Source layout
