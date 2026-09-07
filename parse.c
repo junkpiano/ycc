@@ -309,6 +309,18 @@ Node *unary(void) {
         return new_binary(ND_SUB, new_num(0), unary());
     }
 
+    if (consume("*")) {
+        Node *node = new_node(ND_DEREF);
+        node->lhs = unary();
+        return node;
+    }
+
+    if (consume("&")) {
+        Node *node = new_node(ND_ADDR);
+        node->lhs = unary();
+        return node;
+    }
+
     return primary();
 }
 

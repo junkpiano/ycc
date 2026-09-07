@@ -86,6 +86,8 @@ typedef enum {
     ND_NOP,
     ND_BLOCK,
     ND_FUNCALL,
+    ND_ADDR,
+    ND_DEREF,
     ND_NUM,
 } NodeKind;
 
@@ -133,7 +135,7 @@ struct Node {
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-") unary | primary
+// unary = ("+" | "-" | "*" | "&") unary | primary
 // primary = num
 //         | ident ("(" (expr ("," expr)*)? ")")?
 //         | "(" expr ")"

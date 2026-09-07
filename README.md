@@ -55,7 +55,7 @@ At least one function is required; empty input is rejected.
     relational = add ("<" add | "<=" add | ">" add | ">=" add)*
     add        = mul ("+" mul | "-" mul)*
     mul        = unary ("*" unary | "/" unary)*
-    unary      = ("+" | "-") unary | primary
+    unary      = ("+" | "-" | "*" | "&") unary | primary
     primary    = num
                | ident ("(" (expr ("," expr)*)? ")")?
                | "(" expr ")"
@@ -146,10 +146,17 @@ A name followed by `(` is a call. Up to six arguments, passed in `rdi`, `rsi`,
 `rdx`, `rcx`, `r8`, `r9` as the System V ABI requires; a seventh is rejected.
 Arguments are evaluated left to right.
 
-An `int` result arrives in `eax`, so it is sign-extended into `rax` before use.
-Without that a negative return reads as a large positive number in any
-comparison, while still looking correct as an exit status — the low byte is the
-same either way.
+A call's result is treated differently depending on where the callee is defined.
+A C function returning `int` leaves it in `eax`, so the upper half of `rax` is
+undefined and the result is sign-extended — without that a negative return reads
+as a large positive number in any comparison, while still looking correct as an
+exit status, since the low byte is the same either way. A function defined here
+returns a full 64-bit value, so its result is used as-is; sign-extending it
+would truncate any address it returns.
+
+The consequence is that an *external* function returning a pointer would be
+truncated. Nothing in the test suite does that, and it stops being guesswork
+once types exist.
 
 A callee need not be defined here: the test suite links `tests/helper.c` and
 calls into it.
@@ -158,6 +165,30 @@ calls into it.
     $ cc -o temp temp.s tests/helper.c
     $ ./temp; echo $?
     7
+
+## Pointers
+
+`&x` is the address of `x`, and `*p` reads through a pointer. A dereference is
+an lvalue, so `*p = 3` assigns through it, and addresses can be passed to
+functions:
+
+    setto(p, v) { *p = v; return 0; }
+    main() { x = 0; setto(&x, 4); return x; }
+
+**Pointer arithmetic is not scaled.** `p + 1` advances one byte, not one
+element, because there are no types yet to say how big an element is.
+
+Locals are 8 bytes apart and are laid out at successively lower addresses in
+declaration order, so the local declared immediately *after* the target of `p`
+sits at `p - 8`:
+
+    main() { a = 1; b = 2; p = &a; return *(p - 8); }   // 2, which is b
+
+This depends on the frame layout and is temporary -- the type work fixes the
+scaling. Nothing here should be relied on.
+
+For the same reason `*3` compiles — it dereferences address 3 and faults at run
+time. There is no type to reject it by yet.
 
 ## Stack discipline
 

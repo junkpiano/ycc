@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "ycc.h"
 
 //
@@ -6,6 +8,23 @@
 
 // Distinguishes the labels of one control-flow construct from another.
 static int label_seq = 0;
+
+// Is this call to a function defined in this program?
+//
+// It matters because of what the result register means. A C function returning
+// int leaves it in eax, so the upper half of rax is undefined and has to be
+// sign-extended. A function defined here returns a full 64-bit value in rax,
+// and sign-extending that would truncate any address it returns.
+static bool defined_here(Node *call) {
+    for (Function *fn = functions; fn != NULL; fn = fn->next) {
+        if (fn->name_len == call->funcname_len &&
+            memcmp(fn->name, call->funcname, fn->name_len) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 // The function being emitted, for its return label.
 static Function *current_fn;
@@ -64,6 +83,12 @@ static void gen_operands(Node *node) {
 
 // Push the address of a node that can be assigned to.
 static void gen_lval(Node *node) {
+    // The lvalue of *e is the value of e, which is what makes "*p = x" work.
+    if (node->kind == ND_DEREF) {
+        gen_one(node->lhs);
+        return;
+    }
+
     if (node->kind != ND_LVAR) {
         error("codegen: not an lvalue");
     }
@@ -153,13 +178,27 @@ void gen(Node *node) {
             if (pad) {
                 printf("    add rsp, 8\n");
             }
-            // An int result comes back in eax, which leaves the top half of
-            // rax zero. Sign-extend it, or a negative return reads as a large
-            // positive number in every comparison.
-            printf("    movsx rax, eax\n");
+            // An external int result comes back in eax, leaving the top half
+            // of rax undefined, so it must be sign-extended or a negative
+            // return reads as a large positive number. A function defined here
+            // returns a full 64-bit value, and extending that would truncate a
+            // returned address.
+            if (!defined_here(node)) {
+                printf("    movsx rax, eax\n");
+            }
             push("rax");
             return;
         }
+        case ND_ADDR:
+        // Exactly the lvalue of the operand.
+        gen_lval(node->lhs);
+        return;
+        case ND_DEREF:
+        gen_one(node->lhs);
+        pop("rax");
+        printf("    mov rax, [rax]\n");
+        push("rax");
+        return;
         case ND_NOP:
         // Does nothing, but still leaves a value for the statement-level pop.
         push_int(0);

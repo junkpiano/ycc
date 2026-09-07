@@ -291,13 +291,39 @@ assert 1 'f() { return rsp_aligned(); } main() { return f(); }'
 assert 1 'f() { return 0 + rsp_aligned(); } main() { return f(); }'
 assert 1 'f(a,b,c,d,e,g) { return rsp_aligned(); } main() { return f(1,2,3,4,5,6); }'
 
+# Address-of and dereference.
+assert 3 'main() { x=3; y=&x; return *y; }'
+assert 3 'main() { x=3; return *&x; }'
+assert 5 'main() { x=3; y=&x; *y=5; return x; }'
+assert 3 'main() { x=3; y=&x; z=&y; return **z; }'
+assert 7 'main() { x=3; y=&x; z=&y; **z=7; return x; }'
+assert 8 'main() { x=1; y=&x; *y = *y + 7; return x; }'
+# An address can be passed to and used by another function.
+assert 9 'f(p) { *p = 9; return 0; } main() { x=1; f(&p); f(&x); return x; }'
+assert 6 'get(p) { return *p; } main() { x=6; return get(&x); }'
+assert 4 'setto(p, v) { *p = v; return 0; } main() { x=0; setto(&x, 4); return x; }'
+# Dereference is an lvalue, which is what makes *p = x work at all.
+assert 2 'main() { x=1; p=&x; *p = 2; return *p; }'
+assert 1 'main() { x=1; p=&x; return *p == x; }'
+# A pointer returned from a ycc-defined function must survive the call. The
+# result of an external int function is sign-extended from eax; doing that to a
+# defined function's result would truncate an address to 32 bits.
+assert 1 'id(p) { return p; } main() { x=3; return id(&x)==&x; }'
+assert 3 'id(p) { return p; } main() { x=3; return *id(&x); }'
+assert 9 'id(p) { return p; } main() { x=3; *id(&x)=9; return x; }'
+assert 7 'pick(a,b,f) { if (f) return a; return b; } main() { x=7; y=8; return *pick(&x,&y,1); }'
+assert 8 'pick(a,b,f) { if (f) return a; return b; } main() { x=7; y=8; return *pick(&x,&y,0); }'
+# Pointer arithmetic is NOT scaled yet: p+1 advances one byte, not one int.
+# Locals are 8 bytes apart, so the previous one is at p-8. Scaling arrives with
+# the type work.
+assert 2 'main() { a=1; b=2; p=&a; return *(p-8); }'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail 'main() { 1+; }'
 assert_fail 'main() { (1; }'
 assert_fail 'main() { 1 2; }'
 assert_fail 'main() { 1==1 hoge; }'
 assert_fail '@;'
-assert_fail 'main() { *3; }'
 assert_fail 'main() { ); }'
 assert_fail ''
 assert_fail 'main() { 1 }'
@@ -340,6 +366,14 @@ assert_fail 'main(1) { return 1; }'
 assert_fail 'main(a,a) { return a; }'
 assert_fail 'f(a,b,c,d,e,g,h) { return a; } main() { return 1; }'
 assert_fail '() { return 1; }'
+assert_fail 'main() { return &1; }'
+assert_fail 'main() { return &(1+2); }'
+assert_fail 'main() { &1 = 2; }'
+assert_fail 'main() { return &; }'
+assert_fail 'main() { return *; }'
+# '*3' is no longer a rejection: with no types it is a dereference of address 3,
+# which compiles and faults at run time. It becomes rejectable again once the
+# type work can tell a pointer from an int.
 
 rm -f "$HELPER"
 echo "OK ($pass assertions)"
