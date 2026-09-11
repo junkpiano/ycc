@@ -129,6 +129,26 @@ static Token *tokenize(char *p) {
             continue;
         }
 
+        // Line comment.
+        if (startswith(p, "//")) {
+            p += 2;
+            while (*p != '\n' && *p != '\0') {
+                p++;
+            }
+            continue;
+        }
+
+        // Block comment. Does not nest, so the first "*/" ends it.
+        if (startswith(p, "/*")) {
+            char *start = p;
+            char *end = strstr(p + 2, "*/");
+            if (end == NULL) {
+                error_at(start, "unterminated block comment");
+            }
+            p = end + 2;
+            continue;
+        }
+
         if (startswith(p, "==") ||
         startswith(p, "!=") ||
         startswith(p, "<=") ||

@@ -376,6 +376,23 @@ assert 8 'int main() { int a[2][3]; return sizeof(a[0][0]); }'
 assert 7 'int main() { int a[2][3]; a[1][2]=7; return a[1][2]; }'
 assert 5 'int main() { int a[2][3]; int i; int j; for (i=0;i<2;i=i+1) for (j=0;j<3;j=j+1) a[i][j]=i*3+j; return a[1][2]; }'
 
+# Comments.
+assert 1 'int main() { return 1; } // trailing'
+assert 1 '/* leading */ int main() { return 1; }'
+assert 3 'int main() { return 1 /* x */ + 2; }'
+assert 3 'int main() { /* // is inert in here */ return 3; }'
+assert 4 'int main() { return 4; } // /* is inert in here'
+assert 5 'int main() { return /**/ 5; }'
+assert 6 'int/**/main()/**/{/**/return/**/6;/**/}'
+assert 7 'int main() { return 7; } /* a block comment
+spanning lines */'
+assert 8 'int main() {
+  // a line comment
+  return 8;
+}'
+# A block comment does not nest: the first */ ends it.
+assert 9 'int main() { /* /* */ return 9; }'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail 'int main() { 1+; }'
 assert_fail 'int main() { (1; }'
@@ -456,6 +473,9 @@ assert_fail 'int main() { int a[2][3]; a[0]=1; return 1; }'
 # A length whose total size overflows an int is rejected, not wrapped.
 assert_fail 'int main() { int a[2147483647]; return 1; }'
 assert_fail 'int main() { int a[2][2147483647]; return 1; }'
+assert_fail 'int main() { /* return 1; }'
+assert_fail '/* int main() { return 1; }'
+assert_fail 'int main() { return 1; } /*'
 
 rm -f "$HELPER"
 echo "OK ($pass assertions)"

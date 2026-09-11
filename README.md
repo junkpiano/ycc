@@ -113,6 +113,14 @@ empty.
 
 There is no `break` or `continue` yet.
 
+## Comments
+
+    // to end of line
+    /* and block comments, which do not nest */
+
+An unterminated `/*` is an error, reported at the opening token rather than
+silently consuming the rest of the input.
+
 ## Keywords
 
 `return`, `if`, `else`, `while`, `for`, `int` and `sizeof`. Each is a keyword
