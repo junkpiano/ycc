@@ -39,16 +39,38 @@ static Node *new_num(int val) {
 
 Function *functions;
 LVar *locals;
+LVar *globals;
 
-// Find a local by name, or NULL. Linear scan is fine at this scale.
-static LVar *find_lvar(Token *tok) {
-    for (LVar *var = locals; var != NULL; var = var->next) {
+static LVar *find_in(LVar *list, Token *tok) {
+    for (LVar *var = list; var != NULL; var = var->next) {
         if (var->len == tok->len && memcmp(var->name, tok->str, var->len) == 0) {
             return var;
         }
     }
 
     return NULL;
+}
+
+// Find a local by name, or NULL. Linear scan is fine at this scale.
+static LVar *find_lvar(Token *tok) {
+    return find_in(locals, tok);
+}
+
+// Locals shadow globals, so the local list is searched first.
+static LVar *find_var(Token *tok) {
+    LVar *var = find_in(locals, tok);
+    return var != NULL ? var : find_in(globals, tok);
+}
+
+static LVar *new_gvar(Token *tok, Type *ty) {
+    LVar *var = calloc(1, sizeof(LVar));
+    var->next = globals;
+    var->name = tok->str;
+    var->len = tok->len;
+    var->ty = ty;
+    var->is_global = true;
+    globals = var;
+    return var;
 }
 
 // Append a local, giving it the next slot below the last one.
@@ -128,6 +150,9 @@ static Function *function(void) {
     if (name == NULL) {
         error_at(token->str, "expected a function name");
     }
+    if (find_in(globals, name) != NULL) {
+        error_at(name->str, "a global of this name is already declared");
+    }
 
     // Each function has its own locals, so the list starts empty. Parameters
     // are simply the first ones declared.
@@ -186,17 +211,74 @@ static Function *function(void) {
     return fn;
 }
 
+// Both start "int name", so telling them apart needs a look past the
+// declarator to the "(" or the ";".
+static bool is_function_definition(void) {
+    Token *saved = token;
+
+    // Scan the tokens rather than calling declspec(), which would allocate a
+    // pointer type that the rewind then throws away.
+    bool result = false;
+    if (consume_kind(TK_INT)) {
+        while (consume("*")) {
+        }
+        if (consume_ident() != NULL) {
+            result = consume("(");
+        }
+    }
+
+    token = saved;
+    return result;
+}
+
+// A function and a global share one namespace: both become assembler symbols,
+// and a collision would only surface as an assembler error.
+static bool is_defined_function(Token *tok) {
+    for (Function *fn = functions; fn != NULL; fn = fn->next) {
+        if (fn->name_len == tok->len && memcmp(fn->name, tok->str, tok->len) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void global_declaration(void) {
+    Type *ty = declspec();
+    Token *name;
+    ty = declarator(ty, &name);
+
+    if (find_in(globals, name) != NULL) {
+        error_at(name->str, "redeclared global");
+    }
+    if (is_defined_function(name)) {
+        error_at(name->str, "a function of this name is already defined");
+    }
+    if (consume("=")) {
+        error_at(token->str, "a global cannot have an initialiser yet");
+    }
+
+    new_gvar(name, ty);
+    expect(";");
+}
+
 void program(void) {
     Function head = {0};
     Function *cur = &head;
 
     while (!at_eof()) {
-        cur->next = function();
-        cur = cur->next;
+        if (is_function_definition()) {
+            cur->next = function();
+            cur = cur->next;
+            // Published as we go, so a later declaration can see it.
+            functions = head.next;
+        } else {
+            global_declaration();
+        }
     }
 
     if (head.next == NULL) {
-        error("empty program");
+        error("no function defined");
     }
 
     functions = head.next;
@@ -436,12 +518,12 @@ Node *primary(void) {
             return node;
         }
 
-        LVar *var = find_lvar(tok);
+        LVar *var = find_var(tok);
         if (var == NULL) {
             error_at(tok->str, "undeclared variable");
         }
         Node *node = new_node(ND_LVAR);
-        node->offset = var->offset;
+        node->var = var;
         node->ty = var->ty;
         return node;
     }

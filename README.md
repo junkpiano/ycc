@@ -22,7 +22,7 @@ declaration, which usually means it should have been `static`.
 
 ## Usage
 
-A program is a sequence of function definitions. Execution starts at `main`, and
+A program is a sequence of function definitions and global declarations. Execution starts at `main`, and
 the program exits with the value it returns, so only the low 8 bits survive:
 `300` exits with status 44, and `-5` with status 251.
 
@@ -40,9 +40,10 @@ At least one function is required; empty input is rejected.
 
 ## Supported grammar
 
-    program    = function+
+    program    = (function | global)+
     function   = declspec ident "(" (declspec ident ("," declspec ident)*)? ")"
                  "{" stmt* "}"
+    global     = declspec declarator ";"
     declspec   = "int" "*"*
     declarator = ident ("[" num "]")*
     stmt       = "{" stmt* "}"
@@ -126,6 +127,25 @@ silently consuming the rest of the input.
 `return`, `if`, `else`, `while`, `for`, `int` and `sizeof`. Each is a keyword
 only when it is a whole identifier, so `returnx`, `iffy`, `elsewhere`, `whilst`,
 `format`, `integer` and `sizeofx` are ordinary variable names.
+
+## Globals
+
+    int count;
+    int inc() { count = count + 1; return count; }
+
+A declaration at the top level is a global. It lives in `.data`, is **zeroed
+before the program starts** (unlike a local, which is not initialised), and
+keeps its value across calls.
+
+A local or parameter of the same name shadows it for that function. A global
+must be declared before the function that uses it.
+
+Functions and globals share one namespace, since both become assembler symbols.
+Declaring `int foo;` alongside `int foo() {...}` is rejected here rather than
+left to fail as an assembler error.
+
+Initialisers are not supported yet: `int x = 1;` at the top level is rejected
+rather than quietly ignored.
 
 ## Variables
 

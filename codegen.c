@@ -93,8 +93,13 @@ static void gen_lval(Node *node) {
         error("codegen: not an lvalue");
     }
 
-    printf("    mov rax, rbp\n");
-    printf("    sub rax, %d\n", node->offset);
+    // A global is addressed by name; a local by its distance below rbp.
+    if (node->var->is_global) {
+        printf("    lea rax, %.*s[rip]\n", node->var->len, node->var->name);
+    } else {
+        printf("    mov rax, rbp\n");
+        printf("    sub rax, %d\n", node->var->offset);
+    }
     push("rax");
 }
 
@@ -364,12 +369,29 @@ static void gen_function(Function *fn) {
     printf("    ret\n");
 }
 
+// Globals live in .data and are zeroed, unlike locals.
+static void gen_globals(void) {
+    if (globals == NULL) {
+        return;
+    }
+
+    printf(".data\n");
+    for (LVar *var = globals; var != NULL; var = var->next) {
+        printf(".globl %.*s\n", var->len, var->name);
+        printf("%.*s:\n", var->len, var->name);
+        printf("    .zero %d\n", type_size(var->ty));
+    }
+    printf(".text\n");
+}
+
 void gen_program(void) {
     // Type the whole program first: a call's type can depend on a definition
     // that appears later in the file.
     for (Function *fn = functions; fn != NULL; fn = fn->next) {
         add_type(fn->body);
     }
+
+    gen_globals();
 
     for (Function *fn = functions; fn != NULL; fn = fn->next) {
         gen_function(fn);

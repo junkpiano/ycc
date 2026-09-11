@@ -89,12 +89,16 @@ struct LVar {
     LVar *next;
     char *name; // not NUL-terminated; points into the input
     int len;
-    int offset; // distance below rbp
+    int offset; // locals only: distance below rbp
+    bool is_global;
     Type *ty;
 };
 
 // Locals of the function being parsed, most recently declared first.
 extern LVar *locals;
+
+// Every global, most recently declared first.
+extern LVar *globals;
 
 
 
@@ -150,16 +154,17 @@ struct Node {
     int nargs;
 
     int val;    // ND_NUM only
-    int offset; // ND_LVAR only: distance below rbp
+    LVar *var;  // ND_LVAR only
 };
 
-// program = function+
+// program = (function | global)+
 // function = declspec ident "(" (declspec ident ("," declspec ident)*)? ")"
 //            "{" stmt* "}"
+// global = declspec declarator ";"
 // declspec = "int" "*"*
 // declarator = ident ("[" num "]")*
 // stmt = "{" stmt* "}"
-//      | declspec ident ";"
+//      | declspec declarator ";"
 //      | ";"
 //      | expr ";"
 //      | "return" expr ";"

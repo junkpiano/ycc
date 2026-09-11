@@ -393,6 +393,21 @@ assert 8 'int main() {
 # A block comment does not nest: the first */ ends it.
 assert 9 'int main() { /* /* */ return 9; }'
 
+# Globals live in .data, are zero before anything assigns to them, and survive
+# across calls.
+assert 2 'int count; int inc() { count = count + 1; return count; } int main() { inc(); inc(); return count; }'
+assert 0 'int g; int main() { return g; }'
+assert 3 'int a; int b; int main() { a=1; b=2; return a+b; }'
+assert 7 'int g; int set() { g = 7; return 0; } int main() { set(); return g; }'
+assert 39 'int arr[4]; int main() { arr[2] = 7; return arr[2] + sizeof(arr); }'
+assert 32 'int arr[4]; int main() { return sizeof(arr); }'
+assert 6 'int arr[3]; int fill() { int i; for (i=0;i<3;i=i+1) arr[i]=i+1; return 0; } int sum() { int i; int s; s=0; for (i=0;i<3;i=i+1) s=s+arr[i]; return s; } int main() { fill(); return sum(); }'
+assert 5 'int *gp; int main() { int x; x=5; gp=&x; return *gp; }'
+# A local shadows a global of the same name, and the global is untouched.
+assert 1 'int g; int f() { int g; g = 9; return 0; } int main() { g = 1; f(); return g; }'
+assert 9 'int g; int f() { int g; g = 9; return g; } int main() { g = 1; return f(); }'
+assert 4 'int g; int f(int g) { return g; } int main() { g = 1; return f(4); }'
+
 # Malformed input must be rejected, not silently miscompiled.
 assert_fail 'int main() { 1+; }'
 assert_fail 'int main() { (1; }'
@@ -476,6 +491,17 @@ assert_fail 'int main() { int a[2][2147483647]; return 1; }'
 assert_fail 'int main() { /* return 1; }'
 assert_fail '/* int main() { return 1; }'
 assert_fail 'int main() { return 1; } /*'
+assert_fail 'int g; int g; int main() { return 1; }'
+assert_fail 'int g = 1; int main() { return g; }'
+assert_fail 'int g int main() { return 1; }'
+assert_fail 'int g;'
+# A function and a global share one namespace: both become assembler symbols,
+# so a collision must be caught here rather than by as.
+assert_fail 'int foo; int foo() { return 1; } int main() { return foo(); }'
+assert_fail 'int foo() { return 1; } int foo; int main() { return foo(); }'
+assert_fail 'int main; int main() { return 1; }'
+# A global must be declared before the function that uses it, as in C.
+assert_fail 'int use() { return g; } int g; int main() { g = 8; return use(); }'
 
 rm -f "$HELPER"
 echo "OK ($pass assertions)"
